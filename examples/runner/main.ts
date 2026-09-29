@@ -5,8 +5,15 @@ import { createMannequin } from 'aiwebengine/extras';
 import { presets, burst, CameraShake, flash, punchScale } from 'aiwebengine/fx';
 import { UI, h, u } from 'aiwebengine/ui';
 import { sound } from 'aiwebengine/audio';
+import { yandex } from 'aiwebengine/yandex';
 
 const game = await createGame();
+// Yandex Games SDK (no-op when not running on the portal)
+const ya = await yandex(game);
+const ru = ya.lang === 'ru' || ya.lang === 'be' || ya.lang === 'kk' || ya.lang === 'uk' || ya.lang === 'uz';
+const T = ru
+  ? { title: 'РАННЕР', hint1: 'Свайп или ← → — смена полосы', hint2: 'Свайп вверх / пробел — прыжок', play: 'ИГРАТЬ', over: 'КОНЕЦ ИГРЫ', retry: 'ЕЩЁ РАЗ', score: 'Очки', best: 'Рекорд', record: 'НОВЫЙ РЕКОРД!' }
+  : { title: 'RUNNER', hint1: 'Swipe or ← → to switch lanes', hint2: 'Swipe up / space to jump', play: 'PLAY', over: 'GAME OVER', retry: 'RETRY', score: 'Score', best: 'Best', record: 'NEW RECORD!' };
 const { scene, camera } = game;
 camera.fit = 'contain';
 camera.designAspect = 9 / 16;
@@ -52,19 +59,20 @@ const ui = new UI(game, { reference: [720, 1280], match: 0.5 });
 const scoreLbl = ui.text('0', 'top', { fontSize: u(72), fontWeight: '900' });
 const coinLbl = ui.text('0', 'top-right', { fontSize: u(40), color: '#ffe066' });
 ui.screen('start',
-  h('div', { class: 'ui-title' }, 'RUNNER'),
-  h('div', { style: { opacity: '0.85', textAlign: 'center' } }, 'Swipe or ← → to switch lanes', h('br'), 'Swipe up / space to jump'),
-  h('button', { class: 'ui-btn green', onClick: () => start() }, 'PLAY'));
+  h('div', { class: 'ui-title' }, T.title),
+  h('div', { style: { opacity: '0.85', textAlign: 'center' } }, T.hint1, h('br'), T.hint2),
+  h('button', { class: 'ui-btn green', onClick: () => start() }, T.play));
 const finalLbl = h('div', { class: 'ui-big' }, '');
 const bestLbl = h('div', { style: { opacity: '0.8' } }, '');
-ui.screen('over', h('div', { class: 'ui-title' }, 'GAME OVER'), finalLbl, bestLbl, h('button', { class: 'ui-btn', onClick: () => start() }, 'RETRY'));
+ui.screen('over', h('div', { class: 'ui-title' }, T.over), finalLbl, bestLbl, h('button', { class: 'ui-btn', onClick: () => retry() }, T.retry));
 ui.show('start');
 
 // ---- state
 let state: 'menu' | 'play' | 'dead' = 'menu';
 let dist = 0, speed = 10, lane = 1, x = 0, y = 0, vy = 0, nCoins = 0, nextSpawn = 0;
 let best = 0;
-try { best = +(localStorage.getItem('runner.best') ?? 0); } catch {}
+let runs = 0;
+ya.load<{ best: number }>().then((d) => (best = Math.max(best, d.best ?? 0)));
 
 function reset() {
   dist = 0; speed = 10; lane = 1; x = 0; y = 0; vy = 0; nCoins = 0; nextSpawn = 25;
@@ -80,18 +88,27 @@ function start() {
   ui.hide();
   hero.play('run', { fade: 0.1 });
   sound.sfx('click');
+  runs++;
+  ya.gameplayStart();
+}
+// fullscreen ad between runs (every 2nd retry); the game is paused and muted while it shows
+async function retry() {
+  ui.hide();
+  if (runs % 2 === 0) await ya.showAd();
+  start();
 }
 function die() {
   state = 'dead';
+  ya.gameplayStop();
   hero.play('fall', { fade: 0.1 });
   shake.add(0.8);
   flash(hero.meshes[0], 0xff3355, 0.4);
   sound.sfx('explosion', 0.7);
   const score = Math.floor(dist) + nCoins * 10;
   const record = score > best;
-  if (record) { best = score; try { localStorage.setItem('runner.best', String(best)); } catch {} }
-  finalLbl.textContent = `Score ${score}`;
-  bestLbl.textContent = record ? 'NEW RECORD!' : `Best ${best}`;
+  if (record) { best = score; ya.save({ best }); }
+  finalLbl.textContent = `${T.score} ${score}`;
+  bestLbl.textContent = record ? T.record : `${T.best} ${best}`;
   setTimeout(() => {
     ui.show('over');
     if (record) { burst(scene, presets.confetti(), 150, [x, 1, -3]); sound.sfx('win'); } else sound.sfx('lose');
@@ -173,3 +190,5 @@ game.onUpdate((dt) => {
   sun.shadowFocus = [0, 0, -4];
 });
 Object.assign(window, { game });
+// everything is created and the menu is interactive -> tell the portal
+ya.ready();

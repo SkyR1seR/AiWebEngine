@@ -23,6 +23,20 @@
         "--strictPort"
       ],
       "port": 4173
+    },
+    {
+      "name": "export-runner",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--outDir",
+        "export/runner",
+        "--port",
+        "4174",
+        "--strictPort"
+      ],
+      "port": 4174
     }
   ]
 }

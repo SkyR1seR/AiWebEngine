@@ -13,7 +13,8 @@
     "./audio": "./src/audio/index.ts",
     "./debug": "./src/debug/index.ts",
     "./extras": "./src/extras/index.ts",
-    "./assets": "./src/assets/index.ts"
+    "./assets": "./src/assets/index.ts",
+    "./yandex": "./src/yandex/index.ts"
   },
   "scripts": {
     "dev": "vite",
@@ -23,7 +24,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "new": "node tools/new-game.mjs",
-    "analyze": "node tools/analyze.mjs"
+    "analyze": "node tools/analyze.mjs",
+    "export": "node tools/export.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

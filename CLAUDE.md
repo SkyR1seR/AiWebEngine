@@ -4,6 +4,7 @@ Tiny WebGPU/WebGL2 3D game engine (TypeScript, no runtime deps). The user writes
 
 - API reference & recipes: `docs/AI_GUIDE.md` — read it before writing game code.
 - Games live in `games/<name>/` (create with `npm run new <name>`); examples in `examples/`. Both import `aiwebengine`, `aiwebengine/physics`, `/fx`, `/ui`, `/audio`, `/assets`, `/extras`, `/debug` (aliased to `src/` in vite.config.ts and tsconfig).
+- Publishing: never upload sources. `npm run export <name> -- --yandex` → `export/<name>.zip`; Yandex games must call `ya.ready()` (see AI_GUIDE "Publishing").
 - Commands: `npm run dev` (http://localhost:5173/games/<name>/), `npm test`, `npm run typecheck`, `npm run size [name]`, `npm run analyze -- <main.ts>`.
 - Browser preview config: `.claude/launch.json` (`dev` on 5173, `preview` of dist on 4173). The pane pauses the loop when hidden: advance manually with `game.stop(); for (...) game.frame(t += 1/60); game.start()` from the JS tool, then screenshot.
 

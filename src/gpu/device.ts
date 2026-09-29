@@ -117,6 +117,8 @@ export interface CreateDeviceOptions {
   backend?: 'auto' | BackendKind;
   antialias?: boolean;
   powerPreference?: 'low-power' | 'high-performance';
+  /** ms to wait for WebGPU init before falling back to WebGL2 (default 4000) */
+  webgpuTimeout?: number;
 }
 
 /** Create the best available device. Backends are code-split: only the chosen one is downloaded. */
@@ -126,9 +128,16 @@ export async function createDevice(canvas: HTMLCanvasElement, opts: CreateDevice
   if (q === 'webgl2' || q === 'webgpu') want = q;
   if (want !== 'webgl2' && typeof navigator !== 'undefined' && navigator.gpu) {
     try {
+      // Some drivers never resolve requestAdapter/requestDevice: give up after a timeout and use WebGL2
+      // (the abandoned WebGPU attempt checks the flag before touching the canvas).
+      let abandoned = false;
       const m = await import('./webgpu');
-      const d = await m.createWebGPUDevice(canvas, opts, preprocess);
+      const d = await Promise.race([
+        m.createWebGPUDevice(canvas, opts, preprocess, () => abandoned),
+        new Promise<null>((r) => setTimeout(() => r(null), opts.webgpuTimeout ?? 4000)),
+      ]);
       if (d) return d;
+      abandoned = true;
     } catch (e) {
       console.warn('WebGPU init failed, falling back to WebGL2', e);
     }

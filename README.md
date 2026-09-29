@@ -60,6 +60,17 @@ game.onUpdate((dt) => cube.setRotation(0, game.time.elapsed, 0));
 | `npm test` | юнит-тесты (математика, шейдерный препроцессор, физика, анимации, glTF) |
 | `npm run typecheck` | проверка типов |
 | `npm run new <имя>` | заготовка игры в `games/<имя>` |
+| `npm run export <имя> -- --yandex` | архив `export/<имя>.zip` для Яндекс Игр (без `--yandex` — для любого хостинга) |
+
+## Публикация (Яндекс Игры)
+
+Загружать нужно не исходники (`main.ts`), а собранный архив:
+
+```bash
+npm run export runner -- --yandex
+```
+
+Получится `export/runner.zip`: `index.html` в корне, JS-чанки в `assets/`, подключён `/sdk.js`. В коде игры SDK подключается через `aiwebengine/yandex`: `ready()`, gameplay start/stop, реклама с паузой и выключением звука, облачные сохранения, язык портала. Вне Яндекса все вызовы безопасно ничего не делают.
 
 ## Структура
 

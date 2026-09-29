@@ -23,10 +23,12 @@ struct O{@builtin(position)p:vec4f,@location(0)uv:vec2f}
 @vertex fn vs_main(@builtin(vertex_index)i:u32)->O{let uv=vec2f(f32((i<<1u)&2u),f32(i&2u));var o:O;o.p=vec4f(uv*2.-1.,0.,1.);o.uv=vec2f(uv.x,1.-uv.y);return o;}
 @fragment fn fs_main(i:O)->@location(0)vec4f{return textureSample(t,s,i.uv);}`;
 
-export async function createWebGPUDevice(canvas: HTMLCanvasElement, opts: CreateDeviceOptions, preprocess: typeof Preprocess): Promise<Device | null> {
+export async function createWebGPUDevice(canvas: HTMLCanvasElement, opts: CreateDeviceOptions, preprocess: typeof Preprocess, abandoned: () => boolean = () => false): Promise<Device | null> {
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: opts.powerPreference ?? 'high-performance' });
   if (!adapter) return null;
+  if (abandoned()) return null;
   const gpu = await adapter.requestDevice();
+  if (abandoned()) { gpu.destroy(); return null; }
   const ctx = canvas.getContext('webgpu');
   if (!ctx) return null;
   const screenFormat = navigator.gpu.getPreferredCanvasFormat();

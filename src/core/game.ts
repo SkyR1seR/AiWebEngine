@@ -37,7 +37,10 @@ export class Game {
   time = { dt: 0, elapsed: 0, frame: 0, fps: 60, alpha: 0, scale: 1 };
   systems: System[] = [];
   running = false;
+  /** true while the tab is hidden */
   paused = false;
+  /** true while paused by the game (menus, ads) via pause()/resume() */
+  held = false;
   readonly fixedStep: number;
   private _fns: { update: Fn[]; fixed: Fn[]; late: Fn[]; render: Fn[] } = { update: [], fixed: [], late: [], render: [] };
   private _acc = 0;
@@ -79,13 +82,16 @@ export class Game {
     };
     this._raf = requestAnimationFrame(loop);
   }
+  /** Freeze simulation & rendering updates (e.g. during an ad). */
+  pause() { this.held = true; }
+  resume() { this.held = false; this._last = 0; }
   stop() { this.running = false; cancelAnimationFrame(this._raf); }
 
   /** Advance one frame (called by the loop; can be called manually for tests). */
   frame(now: number) {
     const raw = this._last ? Math.min(now - this._last, 0.1) : this.fixedStep;
     this._last = now;
-    if (this.paused) return;
+    if (this.paused || this.held) return;
     const dt = raw * this.time.scale;
     const T = this.time;
     T.dt = dt; T.elapsed += dt; T.frame++;

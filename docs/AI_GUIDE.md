@@ -13,6 +13,7 @@ import { sound } from 'aiwebengine/audio';  // sound.sfx('coin'), sound.play(url
 import { ... } from 'aiwebengine/assets';   // loadGLTF, Model
 import { ... } from 'aiwebengine/extras';   // createMannequin, OrbitControls, FollowCamera
 import { ... } from 'aiwebengine/debug';    // DebugDraw, statsOverlay
+import { yandex } from 'aiwebengine/yandex'; // Yandex Games SDK wrapper (no-op outside the portal)
 ```
 
 ## Game & loop
@@ -127,6 +128,21 @@ u(24) → 'calc(var(--u)*24px)' for scaled custom CSS. Classes: ui-btn ui-panel 
 ## Debug
 `statsOverlay(game)`; `const dbg = new DebugDraw(game); dbg.physics = world; dbg.line(a,b,hex); dbg.box(c,half); dbg.sphere(c,r)`.
 
+## Publishing (Yandex Games and other portals)
+Never upload sources (`.ts` is served as `video/mp2t` and the module fails to load). Build with
+`npm run export <name> -- --yandex` → `export/<name>.zip` (index.html at the archive root, forward-slash paths,
+`<script src="/sdk.js">` injected). Without `--yandex` it is a generic static build.
+```ts
+const ya = await yandex(game);          // right after createGame; ya.lang = portal language ('ru', 'en', ...)
+ya.ready();                              // REQUIRED by moderation: once the first screen is interactive
+ya.gameplayStart(); ya.gameplayStop();   // around active play (runs/levels)
+await ya.showAd();                       // interstitial between rounds; game paused + muted while it shows
+if (await ya.showRewarded()) bonus();
+await ya.save({ best }); const d = await ya.load();   // cloud save (localStorage fallback)
+```
+Moderation basics: localize UI for ru/en via `ya.lang`, no external network requests, sound off when the tab is hidden (built in), pause on portal pause events (built in).
+`game.pause()` / `game.resume()` freeze the loop manually. WebGPU init that hangs >4 s falls back to WebGL2 (`webgpuTimeout` option).
+
 ## Math (Float32Array, output-first)
 `v3(x,y,z) v3add(o,a,b) v3sub v3scale v3addScaled(o,a,b,s) v3dot v3cross v3len v3normalize v3lerp v3dist v3transformMat4 v3transformQuat`,
 `quat() qeuler(o,x,y,z) qaxisAngle qmul qslerp qlookDir(o,dir) qfromTo`, `m4() m4compose(o,t,q,s) m4mul m4invert m4targetTo`,
@@ -135,5 +151,6 @@ u(24) → 'calc(var(--u)*24px)' for scaled custom CSS. Classes: ui-btn ui-panel 
 ## Workflow
 - New game: `npm run new mygame` → `games/mygame/main.ts`; `npm run dev` → http://localhost:5173/games/mygame/
 - Verify both backends (`?backend=webgl2`), mobile viewport, console errors.
+- Publish: `npm run export <name> -- --yandex` (see Publishing). Test the export locally: `npx vite preview --outDir export/<name>`.
 - Size: `npm run size [name]`; bundle breakdown: `npm run analyze -- games/x/main.ts`. Tests: `npm test`.
 - Weight tips: skip physics for simple games (AABB checks), use `Instances` for repeated meshes, procedural `sound.sfx`, `createMannequin` instead of assets, keep shadows `size: 1024` on mobile.
