@@ -1,0 +1,18 @@
+// aiWebEngine — core entry. Optional modules: 'aiwebengine/physics', '/fx', '/ui', '/audio', '/debug'.
+export * from './core/math';
+export { Game, createGame, type GameOptions, type System } from './core/game';
+export { createDevice, type Device, type BackendKind } from './gpu/device';
+export { Renderer, type PostProcess, type RenderStats } from './render/renderer';
+export { Texture, loadTexture, softDot, checker, type TextureOptions } from './render/texture';
+export { Screen, type ScreenOptions } from './platform/screen';
+export { Input, type SwipeDir } from './platform/input';
+export { Node, type Script } from './scene/node';
+export { Mesh } from './scene/mesh';
+export { Camera, type CameraFit } from './scene/camera';
+export { DirectionalLight, PointLight } from './scene/light';
+export { Scene, type SkyOptions } from './scene/scene';
+export { Geometry, Instances, InstanceBuffer, mergeGeometries } from './geometry/geometry';
+export * from './geometry/primitives';
+export { Material, lambert, unlit, toon, standard, type MaterialOptions, type Lighting } from './materials/material';
+export { Skin } from './anim/skin';
+export { tween, tweens, wait, after, every, Ease, Tween, TweenManager, type TweenOptions, type EaseName } from './anim/tween';
