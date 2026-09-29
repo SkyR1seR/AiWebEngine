@@ -33,13 +33,13 @@ export class PhysicsWorld implements System {
   iterations: number;
   manifolds: Manifold[] = [];
   /** Called for every contact/trigger begin. */
-  private contactFns: ((a: Body, b: Body, info: ContactInfo) => void)[] = [];
-  private prevManifolds = new Map<number, Manifold>();
-  private pairs = new Map<number, PairState>();
-  private sorted: Body[] = [];
-  private infinite: Body[] = [];
-  private pre: ((dt: number) => void)[] = [];
-  private cps: CP[] = [];
+  private _contactFns: ((a: Body, b: Body, info: ContactInfo) => void)[] = [];
+  private _prevManifolds = new Map<number, Manifold>();
+  private _pairs = new Map<number, PairState>();
+  private _sorted: Body[] = [];
+  private _infinite: Body[] = [];
+  private _pre: ((dt: number) => void)[] = [];
+  private _cps: CP[] = [];
 
   constructor(o: WorldOptions = {}) {
     this.gravity = v3(...((o.gravity ?? [0, -9.81, 0]) as [number, number, number]));
@@ -82,27 +82,27 @@ export class PhysicsWorld implements System {
     b.updateInertiaWorld();
     computeAABB(b);
     this.bodies.push(b);
-    if (b.shape.type === 'plane') this.infinite.push(b);
-    else this.sorted.push(b);
+    if (b.shape.type === 'plane') this._infinite.push(b);
+    else this._sorted.push(b);
     return b;
   }
 
   remove(b: Body) {
     const rm = (arr: Body[]) => { const i = arr.indexOf(b); if (i >= 0) arr.splice(i, 1); };
-    rm(this.bodies); rm(this.sorted); rm(this.infinite);
+    rm(this.bodies); rm(this._sorted); rm(this._infinite);
     if (b.node?.data.body === b) delete b.node.data.body;
-    for (const [k, p] of this.pairs) if (p.a === b || p.b === b) this.pairs.delete(k);
+    for (const [k, p] of this._pairs) if (p.a === b || p.b === b) this._pairs.delete(k);
   }
 
   /** Global contact listener (begin events for collisions and triggers). */
   onContact(fn: (a: Body, b: Body, info: ContactInfo) => void) {
-    this.contactFns.push(fn);
-    return () => { this.contactFns = this.contactFns.filter((f) => f !== fn); };
+    this._contactFns.push(fn);
+    return () => { this._contactFns = this._contactFns.filter((f) => f !== fn); };
   }
   /** Callback before every physics step (used by character controllers). */
   onPreStep(fn: (dt: number) => void) {
-    this.pre.push(fn);
-    return () => { this.pre = this.pre.filter((f) => f !== fn); };
+    this._pre.push(fn);
+    return () => { this._pre = this._pre.filter((f) => f !== fn); };
   }
 
   // ---------------------------------------------------------------- System hooks
@@ -129,7 +129,7 @@ export class PhysicsWorld implements System {
       if (dw < 0) { dx = -dx; dy = -dy; dz = -dz; }
       b.angularVelocity[0] = (2 * dx) / dt; b.angularVelocity[1] = (2 * dy) / dt; b.angularVelocity[2] = (2 * dz) / dt;
     }
-    for (const f of this.pre) f(dt);
+    for (const f of this._pre) f(dt);
     this.step(dt);
   }
 
@@ -175,7 +175,7 @@ export class PhysicsWorld implements System {
     }
 
     // broadphase (sweep and prune on X)
-    const s = this.sorted;
+    const s = this._sorted;
     for (const b of s) if (b.type !== 'static' && !b.sleeping) computeAABB(b);
     for (let i = 1; i < s.length; i++) {
       const b = s[i], x = b.aabb[0];
@@ -193,7 +193,7 @@ export class PhysicsWorld implements System {
       if (b.sleeping && a.type === 'kinematic' && v2(a) > 1e-6) b.wake();
       const ad = a.type === 'dynamic' && !a.sleeping, bd = b.type === 'dynamic' && !b.sleeping;
       if (!ad && !bd && !(trig && (a.type !== 'static' || b.type !== 'static'))) return;
-      const cps = this.cps;
+      const cps = this._cps;
       cps.length = 0;
       collide(a, b, cps);
       if (!cps.length) return;
@@ -209,8 +209,8 @@ export class PhysicsWorld implements System {
       const key = pairKey(a, b);
       const m: Manifold = { a, b, pts: [], mu: Math.sqrt(a.friction * b.friction), key };
       const e = Math.max(a.restitution, b.restitution);
-      const prev = this.prevManifolds.get(key);
-      for (const c of cps) m.pts.push(this.makePoint(m, c, dt, e, prev));
+      const prev = this._prevManifolds.get(key);
+      for (const c of cps) m.pts.push(this._makePoint(m, c, dt, e, prev));
       manifolds.push(m);
       if (deepest.d > -0.01) {
         const n = deepest.n;
@@ -226,7 +226,7 @@ export class PhysicsWorld implements System {
         if (a.aabb[1] > b.aabb[4] || b.aabb[1] > a.aabb[4] || a.aabb[2] > b.aabb[5] || b.aabb[2] > a.aabb[5]) continue;
         test(a, b);
       }
-      for (const p of this.infinite) test(a, p);
+      for (const p of this._infinite) test(a, p);
     }
 
     // warm start
@@ -297,7 +297,7 @@ export class PhysicsWorld implements System {
 
     // events
     for (const [k, p] of newPairs) {
-      if (this.pairs.has(k)) continue;
+      if (this._pairs.has(k)) continue;
       if (p.trigger) {
         p.a.onTrigger?.(p.b, 'enter');
         p.b.onTrigger?.(p.a, 'enter');
@@ -306,9 +306,9 @@ export class PhysicsWorld implements System {
         p.a.onCollide?.(p.b, i);
         p.b.onCollide?.(p.a, { point: i.point, normal: v3(-i.normal[0], -i.normal[1], -i.normal[2]), speed: i.speed });
       }
-      for (const f of this.contactFns) f(p.a, p.b, p.info ?? { point: v3(), normal: v3(), speed: 0 });
+      for (const f of this._contactFns) f(p.a, p.b, p.info ?? { point: v3(), normal: v3(), speed: 0 });
     }
-    for (const [k, p] of this.pairs) {
+    for (const [k, p] of this._pairs) {
       if (newPairs.has(k)) continue;
       // keep contacts of sleeping pairs alive
       if ((p.a.sleeping || p.a.type !== 'dynamic') && (p.b.sleeping || p.b.type !== 'dynamic') && !p.trigger && this.bodies.includes(p.a) && this.bodies.includes(p.b)) {
@@ -318,13 +318,13 @@ export class PhysicsWorld implements System {
       if (p.trigger) { p.a.onTrigger?.(p.b, 'exit'); p.b.onTrigger?.(p.a, 'exit'); }
       else { p.a.onCollideEnd?.(p.b); p.b.onCollideEnd?.(p.a); }
     }
-    this.pairs = newPairs;
+    this._pairs = newPairs;
     this.manifolds = manifolds;
-    this.prevManifolds.clear();
-    for (const m of manifolds) this.prevManifolds.set(m.key, m);
+    this._prevManifolds.clear();
+    for (const m of manifolds) this._prevManifolds.set(m.key, m);
   }
 
-  private makePoint(m: Manifold, c: CP, dt: number, e: number, prev?: Manifold): Point {
+  private _makePoint(m: Manifold, c: CP, dt: number, e: number, prev?: Manifold): Point {
     const a = m.a, b = m.b, n = c.n;
     const ra = [c.p[0] - a.position[0], c.p[1] - a.position[1], c.p[2] - a.position[2]];
     const rb = [c.p[0] - b.position[0], c.p[1] - b.position[1], c.p[2] - b.position[2]];

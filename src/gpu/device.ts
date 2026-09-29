@@ -1,4 +1,4 @@
-import type { Defines } from './preprocess';
+import { preprocess, type Defines } from './preprocess';
 
 // Render hardware interface shared by WebGPU and WebGL2 backends.
 
@@ -127,12 +127,12 @@ export async function createDevice(canvas: HTMLCanvasElement, opts: CreateDevice
   if (want !== 'webgl2' && typeof navigator !== 'undefined' && navigator.gpu) {
     try {
       const m = await import('./webgpu');
-      const d = await m.createWebGPUDevice(canvas, opts);
+      const d = await m.createWebGPUDevice(canvas, opts, preprocess);
       if (d) return d;
     } catch (e) {
       console.warn('WebGPU init failed, falling back to WebGL2', e);
     }
   }
   const m = await import('./webgl2');
-  return m.createWebGL2Device(canvas, opts);
+  return m.createWebGL2Device(canvas, opts, preprocess);
 }

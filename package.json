@@ -19,10 +19,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "size": "vite build && node tools/size.mjs",
+    "size": "node tools/size.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "new": "node tools/new-game.mjs"
+    "new": "node tools/new-game.mjs",
+    "analyze": "node tools/analyze.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

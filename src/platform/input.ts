@@ -32,20 +32,20 @@ export class Input {
   gamepad: Gamepad | null = null;
   enabled = true;
 
-  private down = new Set<string>();
-  private pressedSet = new Set<string>();
-  private releasedSet = new Set<string>();
-  private vPrev = new Set<string>();
-  private start: { x: number; y: number; t: number; id: number } | null = null;
+  private _down = new Set<string>();
+  private _pressedSet = new Set<string>();
+  private _releasedSet = new Set<string>();
+  private _vPrev = new Set<string>();
+  private _start: { x: number; y: number; t: number; id: number } | null = null;
 
   constructor(public el: HTMLElement) {
     addEventListener('keydown', (e) => {
       if (!this.enabled) return;
-      if (!e.repeat) { this.down.add(e.code); this.pressedSet.add(e.code); }
+      if (!e.repeat) { this._down.add(e.code); this._pressedSet.add(e.code); }
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && e.target === document.body) e.preventDefault();
     });
-    addEventListener('keyup', (e) => { this.down.delete(e.code); this.releasedSet.add(e.code); });
-    addEventListener('blur', () => this.down.clear());
+    addEventListener('keyup', (e) => { this._down.delete(e.code); this._releasedSet.add(e.code); });
+    addEventListener('blur', () => this._down.clear());
     const pos = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -57,9 +57,9 @@ export class Input {
       const P = this.pointer;
       P.x = p.x; P.y = p.y;
       P.down = true; P.pressed = true; P.button = e.button;
-      this.down.add('Mouse' + e.button);
-      this.pressedSet.add('Mouse' + e.button);
-      if (!this.start) this.start = { ...p, t: performance.now(), id: e.pointerId };
+      this._down.add('Mouse' + e.button);
+      this._pressedSet.add('Mouse' + e.button);
+      if (!this._start) this._start = { ...p, t: performance.now(), id: e.pointerId };
       el.setPointerCapture?.(e.pointerId);
     });
     el.addEventListener('pointermove', (e) => {
@@ -73,14 +73,14 @@ export class Input {
       this.touches.delete(e.pointerId);
       const P = this.pointer;
       if (!this.touches.size) { P.down = false; P.released = true; }
-      this.down.delete('Mouse' + e.button);
-      this.releasedSet.add('Mouse' + e.button);
-      const s = this.start;
+      this._down.delete('Mouse' + e.button);
+      this._releasedSet.add('Mouse' + e.button);
+      const s = this._start;
       if (s && s.id === e.pointerId) {
         const p = pos(e), dx = p.x - s.x, dy = p.y - s.y, dt = performance.now() - s.t, dist = Math.hypot(dx, dy);
         if (dist > 30 && dt < 600) this.swipe = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
         else if (dist < 12 && dt < 350) this.tap = p;
-        this.start = null;
+        this._start = null;
       }
     };
     el.addEventListener('pointerup', up);
@@ -91,20 +91,20 @@ export class Input {
 
   /** Key or button currently held ('KeyW', 'Space', 'Mouse0', 'Pad0' (gamepad button), or virtual 'jump'). */
   isDown(code: string) {
-    return this.down.has(code) || this.virtualButtons.has(code) || this.padButton(code);
+    return this._down.has(code) || this.virtualButtons.has(code) || this._padButton(code);
   }
   /** Went down this frame. */
   wasPressed(code: string) {
-    return this.pressedSet.has(code) || (this.virtualButtons.has(code) && !this.vPrev.has(code));
+    return this._pressedSet.has(code) || (this.virtualButtons.has(code) && !this._vPrev.has(code));
   }
   wasReleased(code: string) {
-    return this.releasedSet.has(code) || (!this.virtualButtons.has(code) && this.vPrev.has(code));
+    return this._releasedSet.has(code) || (!this.virtualButtons.has(code) && this._vPrev.has(code));
   }
   /** Any of the codes pressed this frame. */
   anyPressed(...codes: string[]) { return codes.some((c) => this.wasPressed(c)); }
 
-  private padPrev: boolean[] = [];
-  private padButton(code: string) {
+  private _padPrev: boolean[] = [];
+  private _padButton(code: string) {
     if (!code.startsWith('Pad') || !this.gamepad) return false;
     return !!this.gamepad.buttons[+code.slice(3)]?.pressed;
   }
@@ -144,18 +144,18 @@ export class Input {
     this.gamepad = pads ? pads.find((p) => p) ?? null : null;
     if (this.gamepad) {
       this.gamepad.buttons.forEach((b, i) => {
-        if (b.pressed && !this.padPrev[i]) this.pressedSet.add('Pad' + i);
-        if (!b.pressed && this.padPrev[i]) this.releasedSet.add('Pad' + i);
-        this.padPrev[i] = b.pressed;
+        if (b.pressed && !this._padPrev[i]) this._pressedSet.add('Pad' + i);
+        if (!b.pressed && this._padPrev[i]) this._releasedSet.add('Pad' + i);
+        this._padPrev[i] = b.pressed;
       });
     }
   }
 
   /** @internal called at frame end */
   endFrame() {
-    this.pressedSet.clear();
-    this.releasedSet.clear();
-    this.vPrev = new Set(this.virtualButtons);
+    this._pressedSet.clear();
+    this._releasedSet.clear();
+    this._vPrev = new Set(this.virtualButtons);
     const P = this.pointer;
     P.pressed = P.released = false;
     P.dx = P.dy = P.wheel = 0;

@@ -58,9 +58,9 @@ export class Animator implements Script {
   actions = new Map<string, Action>();
   clips = new Map<string, AnimationClip>();
   timeScale = 1;
-  private rest = new Map<Node, Float32Array[]>();
-  private acc = new Map<Node, { p: Float32Array; r: Float32Array; s: Float32Array; wp: number; wr: number; ws: number }>();
-  private listeners = new Map<string, ((name: string, a: Action) => void)[]>();
+  private _rest = new Map<Node, Float32Array[]>();
+  private _acc = new Map<Node, { p: Float32Array; r: Float32Array; s: Float32Array; wp: number; wr: number; ws: number }>();
+  private _listeners = new Map<string, ((name: string, a: Action) => void)[]>();
 
   constructor(public root: Node, clips: AnimationClip[] = [], public nodes: Node[] = []) {
     for (const c of clips) this.clips.set(c.name, c);
@@ -81,7 +81,7 @@ export class Animator implements Script {
     let a = this.actions.get(name);
     if (!a) {
       a = new Action(clip);
-      a.bindings = this.bind(clip);
+      a.bindings = this._bind(clip);
       this.actions.set(name, a);
     }
     const fade = o.fade ?? 0.2;
@@ -117,22 +117,22 @@ export class Animator implements Script {
 
   /** Listen for clip events ('end', 'loop', or custom clip event names). Returns unsubscribe. */
   on(event: string, fn: (name: string, a: Action) => void) {
-    const l = this.listeners.get(event) ?? [];
+    const l = this._listeners.get(event) ?? [];
     l.push(fn);
-    this.listeners.set(event, l);
-    return () => { const x = this.listeners.get(event); if (x) x.splice(x.indexOf(fn), 1); };
+    this._listeners.set(event, l);
+    return () => { const x = this._listeners.get(event); if (x) x.splice(x.indexOf(fn), 1); };
   }
-  private emit(event: string, a: Action) {
-    const l = this.listeners.get(event);
+  private _emit(event: string, a: Action) {
+    const l = this._listeners.get(event);
     if (l) for (const f of [...l]) f(a.clip.name, a);
   }
 
-  private bind(clip: AnimationClip): Binding[] {
+  private _bind(clip: AnimationClip): Binding[] {
     const out: Binding[] = [];
     for (const t of clip.tracks) {
       const node = typeof t.target === 'number' ? this.nodes[t.target] : this.root.find(t.target);
       if (!node) continue;
-      if (!this.rest.has(node)) this.rest.set(node, [node.position.slice(), node.rotation.slice(), node.scale.slice()]);
+      if (!this._rest.has(node)) this._rest.set(node, [node.position.slice(), node.rotation.slice(), node.scale.slice()]);
       out.push({ node, path: t.path, track: t, last: 0 });
     }
     return out;
@@ -150,21 +150,21 @@ export class Animator implements Script {
       if (!a.playing) continue;
       const d = a.clip.duration, prev = a.time;
       a.time += dt * a.speed;
-      for (const e of a.clip.events) if (prev < e.time && a.time >= e.time) this.emit(e.name, a);
+      for (const e of a.clip.events) if (prev < e.time && a.time >= e.time) this._emit(e.name, a);
       if (a.time >= d || a.time < 0) {
         if (a.loop && d > 0) {
           a.time = ((a.time % d) + d) % d;
-          this.emit('loop', a);
-          for (const e of a.clip.events) if (e.time <= a.time) this.emit(e.name, a);
+          this._emit('loop', a);
+          for (const e of a.clip.events) if (e.time <= a.time) this._emit(e.name, a);
         } else {
           a.time = Math.max(0, Math.min(d, a.time));
           a.playing = false;
-          this.emit('end', a);
+          this._emit('end', a);
         }
       }
     }
     // blend
-    const acc = this.acc;
+    const acc = this._acc;
     for (const v of acc.values()) { v.p.fill(0); v.r.fill(0); v.s.fill(0); v.wp = v.wr = v.ws = 0; }
     for (const a of this.actions.values()) {
       const w = a.weight;
@@ -172,7 +172,7 @@ export class Animator implements Script {
       for (const b of a.bindings) {
         let e = acc.get(b.node);
         if (!e) { e = { p: new Float32Array(3), r: new Float32Array(4), s: new Float32Array(3), wp: 0, wr: 0, ws: 0 }; acc.set(b.node, e); }
-        this.sample(b, a.time);
+        this._sample(b, a.time);
         if (b.path === 'rotation') {
           const sign = e.wr > 0 && e.r[0] * _v[0] + e.r[1] * _v[1] + e.r[2] * _v[2] + e.r[3] * _v[3] < 0 ? -w : w;
           for (let i = 0; i < 4; i++) e.r[i] += _v[i] * sign;
@@ -187,7 +187,7 @@ export class Animator implements Script {
       }
     }
     for (const [node, e] of acc) {
-      const rest = this.rest.get(node)!;
+      const rest = this._rest.get(node)!;
       if (e.wp > 0) for (let i = 0; i < 3; i++) node.position[i] = e.p[i] + rest[0][i] * Math.max(0, 1 - e.wp);
       if (e.ws > 0) for (let i = 0; i < 3; i++) node.scale[i] = e.s[i] + rest[2][i] * Math.max(0, 1 - e.ws);
       if (e.wr > 0) {
@@ -203,7 +203,7 @@ export class Animator implements Script {
   }
 
   /** Sample a binding at time t into _v. */
-  private sample(b: Binding, t: number) {
+  private _sample(b: Binding, t: number) {
     const tr = b.track, times = tr.times, vals = tr.values, n = times.length;
     const size = b.path === 'rotation' ? 4 : 3;
     const cubic = tr.interp === 'CUBICSPLINE';

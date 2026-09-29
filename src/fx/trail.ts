@@ -28,10 +28,10 @@ export interface TrailOptions {
  */
 export class Trail extends Mesh {
   o: Required<TrailOptions>;
-  private pts: { p: number[]; t: number }[] = [];
-  private c0: Float32Array;
-  private c1: Float32Array;
-  private time = 0;
+  private _pts: { p: number[]; t: number }[] = [];
+  private _c0: Float32Array;
+  private _c1: Float32Array;
+  private _time = 0;
   emitting = true;
 
   constructor(public target: Node, public camera: Node, opts: TrailOptions = {}) {
@@ -45,26 +45,26 @@ export class Trail extends Mesh {
     g.setIndex(idx);
     super(g, new Material({ type: 'unlit', blend: o.blend, depthWrite: false, cull: 'none', castShadow: false, fog: false }), 'trail');
     this.o = o;
-    this.c0 = color(o.color);
-    this.c1 = color(o.endColor);
+    this._c0 = color(o.color);
+    this._c1 = color(o.endColor);
     this.material.uniforms[0] = this.material.uniforms[1] = this.material.uniforms[2] = o.intensity;
     this.castShadow = this.receiveShadow = false;
     this.frustumCulled = false;
   }
 
-  clear() { this.pts.length = 0; }
+  clear() { this._pts.length = 0; }
 
   override onUpdate(dt: number) {
-    this.time += dt;
-    const o = this.o, pts = this.pts;
+    this._time += dt;
+    const o = this.o, pts = this._pts;
     const p = this.target.worldPosition();
     let last = pts[0];
     if (last && Math.hypot(p[0] - last.p[0], p[1] - last.p[1], p[2] - last.p[2]) > o.maxJump) { pts.length = 0; last = undefined as any; }
     if (this.emitting && (!last || Math.hypot(p[0] - last.p[0], p[1] - last.p[1], p[2] - last.p[2]) > o.minDistance)) {
-      pts.unshift({ p: [p[0], p[1], p[2]], t: this.time });
+      pts.unshift({ p: [p[0], p[1], p[2]], t: this._time });
       if (pts.length > o.length) pts.pop();
     } else if (last && this.emitting) { last.p = [p[0], p[1], p[2]]; }
-    while (pts.length && this.time - pts[pts.length - 1].t > o.time) pts.pop();
+    while (pts.length && this._time - pts[pts.length - 1].t > o.time) pts.pop();
     const g = this.geometry;
     const pos = g.attributes.position.data as Float32Array, col = g.attributes.color.data as Float32Array;
     const cam = this.camera.worldPosition();
@@ -76,14 +76,14 @@ export class Trail extends Mesh {
       let sx = dy * vz - dz * vy, sy = dz * vx - dx * vz, sz = dx * vy - dy * vx;
       const l = Math.hypot(sx, sy, sz) || 1;
       const k = 1 - i / Math.max(1, n - 1);
-      const age = Math.min(1, (this.time - pts[i].t) / o.time);
+      const age = Math.min(1, (this._time - pts[i].t) / o.time);
       const w = (o.width * k) / 2 / l;
       sx *= w; sy *= w; sz *= w;
       pos.set([c[0] + sx, c[1] + sy, c[2] + sz, c[0] - sx, c[1] - sy, c[2] - sz], i * 6);
       const alpha = k * (1 - age);
       for (let j = 0; j < 2; j++) {
         const q = i * 8 + j * 4;
-        for (let ch = 0; ch < 3; ch++) col[q + ch] = this.c0[ch] + (this.c1[ch] - this.c0[ch]) * (1 - k);
+        for (let ch = 0; ch < 3; ch++) col[q + ch] = this._c0[ch] + (this._c1[ch] - this._c0[ch]) * (1 - k);
         col[q + 3] = alpha;
       }
     }

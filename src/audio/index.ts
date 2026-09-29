@@ -21,12 +21,12 @@ export type SfxName = 'jump' | 'coin' | 'hit' | 'explosion' | 'click' | 'powerup
  */
 export class Sound {
   private _ctx: AudioContext | null = null;
-  private buses: Record<string, GainNode> = {};
+  private _buses: Record<string, GainNode> = {};
   private master!: GainNode;
-  private cache = new Map<string, Promise<AudioBuffer>>();
-  private music: Voice | null = null;
-  private noiseBuf: AudioBuffer | null = null;
-  private vol = { master: 1, sfx: 1, music: 0.6 };
+  private _cache = new Map<string, Promise<AudioBuffer>>();
+  private _music: Voice | null = null;
+  private _noiseBuf: AudioBuffer | null = null;
+  private _vol = { master: 1, sfx: 1, music: 0.6 };
   muted = false;
 
   /** AudioContext (created lazily; resumes on first user gesture). */
@@ -35,29 +35,29 @@ export class Sound {
       const c = (this._ctx = new AudioContext());
       this.master = c.createGain();
       this.master.connect(c.destination);
-      for (const b of ['sfx', 'music'] as const) { const g = c.createGain(); g.gain.value = this.vol[b]; g.connect(this.master); this.buses[b] = g; }
+      for (const b of ['sfx', 'music'] as const) { const g = c.createGain(); g.gain.value = this._vol[b]; g.connect(this.master); this._buses[b] = g; }
       const resume = () => { if (c.state !== 'running') c.resume(); };
       for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, resume, { passive: true });
       document.addEventListener('visibilitychange', () => (document.hidden ? c.suspend() : c.resume()));
-      this.applyVolume();
+      this._applyVolume();
     }
     return this._ctx;
   }
 
-  setVolume(bus: 'master' | 'sfx' | 'music', v: number) { this.vol[bus] = v; if (this._ctx) this.applyVolume(); }
-  mute(m = !this.muted) { this.muted = m; if (this._ctx) this.applyVolume(); return m; }
-  private applyVolume() {
-    this.master.gain.value = this.muted ? 0 : this.vol.master;
-    this.buses.sfx.gain.value = this.vol.sfx;
-    this.buses.music.gain.value = this.vol.music;
+  setVolume(bus: 'master' | 'sfx' | 'music', v: number) { this._vol[bus] = v; if (this._ctx) this._applyVolume(); }
+  mute(m = !this.muted) { this.muted = m; if (this._ctx) this._applyVolume(); return m; }
+  private _applyVolume() {
+    this.master.gain.value = this.muted ? 0 : this._vol.master;
+    this._buses.sfx.gain.value = this._vol.sfx;
+    this._buses.music.gain.value = this._vol.music;
   }
 
   /** Load and decode an audio file (cached). */
   load(url: string): Promise<AudioBuffer> {
-    let p = this.cache.get(url);
+    let p = this._cache.get(url);
     if (!p) {
       p = fetch(url).then((r) => r.arrayBuffer()).then((b) => this.ctx.decodeAudioData(b));
-      this.cache.set(url, p);
+      this._cache.set(url, p);
     }
     return p;
   }
@@ -80,7 +80,7 @@ export class Sound {
     let node: AudioNode = s;
     if (o.pan) { const p = c.createStereoPanner(); p.pan.value = o.pan; s.connect(p); node = p; }
     node.connect(g);
-    g.connect(this.buses[o.bus ?? 'sfx']);
+    g.connect(this._buses[o.bus ?? 'sfx']);
     s.start();
     return {
       source: s,
@@ -94,12 +94,12 @@ export class Sound {
   /** Play looping music, crossfading from the current track. */
   async playMusic(url: string, volume = 1, fade = 1) {
     const buf = await this.load(url);
-    this.music?.stop(fade);
+    this._music?.stop(fade);
     const v = this.play(buf, { loop: true, bus: 'music', volume: 0 })!;
     v.gain.gain.setTargetAtTime(volume, this.ctx.currentTime, fade / 3);
-    this.music = v;
+    this._music = v;
   }
-  stopMusic(fade = 1) { this.music?.stop(fade); this.music = null; }
+  stopMusic(fade = 1) { this._music?.stop(fade); this._music = null; }
 
   /** Simple synth tone. */
   tone(o: { freq?: number; to?: number; type?: OscillatorType; duration?: number; volume?: number; attack?: number; delay?: number } = {}) {
@@ -112,7 +112,7 @@ export class Sound {
     g.gain.linearRampToValueAtTime((o.volume ?? 0.3), t + (o.attack ?? 0.005));
     g.gain.exponentialRampToValueAtTime(0.001, t + d);
     osc.connect(g);
-    g.connect(this.buses.sfx);
+    g.connect(this._buses.sfx);
     osc.start(t);
     osc.stop(t + d + 0.02);
   }
@@ -120,13 +120,13 @@ export class Sound {
   /** Filtered noise burst (explosions, hits, whooshes). */
   noise(o: { duration?: number; volume?: number; freq?: number; to?: number; q?: number; delay?: number } = {}) {
     const c = this.ctx, t = c.currentTime + (o.delay ?? 0), d = o.duration ?? 0.3;
-    if (!this.noiseBuf) {
-      const b = (this.noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate));
+    if (!this._noiseBuf) {
+      const b = (this._noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate));
       const ch = b.getChannelData(0);
       for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
     }
     const s = c.createBufferSource();
-    s.buffer = this.noiseBuf;
+    s.buffer = this._noiseBuf;
     s.loop = true;
     const f = c.createBiquadFilter();
     f.type = 'lowpass';
@@ -136,7 +136,7 @@ export class Sound {
     const g = c.createGain();
     g.gain.setValueAtTime(o.volume ?? 0.4, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + d);
-    s.connect(f); f.connect(g); g.connect(this.buses.sfx);
+    s.connect(f); f.connect(g); g.connect(this._buses.sfx);
     s.start(t);
     s.stop(t + d + 0.02);
   }

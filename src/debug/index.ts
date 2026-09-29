@@ -10,9 +10,9 @@ import { axes } from '../physics/collide';
 /** Immediate-mode debug lines (cleared every frame). */
 export class DebugDraw implements System {
   mesh: Mesh;
-  private pos: number[] = [];
-  private col: number[] = [];
-  private c = new Float32Array(4);
+  private _pos: number[] = [];
+  private _col: number[] = [];
+  private _c = new Float32Array(4);
   /** physics world to visualize (bodies + contacts) */
   physics: PhysicsWorld | null = null;
   showContacts = true;
@@ -27,9 +27,9 @@ export class DebugDraw implements System {
   }
 
   line(a: V3, b: V3, c: ColorLike = 0x00ff00) {
-    color(c, 1, this.c);
-    this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2]);
-    this.col.push(...this.c, ...this.c);
+    color(c, 1, this._c);
+    this._pos.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    this._col.push(...this._c, ...this._c);
   }
   /** Oriented box; rot = quaternion. */
   box(center: V3, half: V3, rot: ArrayLike<number> = [0, 0, 0, 1], c: ColorLike = 0x00ff00) {
@@ -103,13 +103,13 @@ export class DebugDraw implements System {
       }
     }
     const g = this.mesh.geometry;
-    if (this.pos.length) {
-      g.setAttribute('position', new Float32Array(this.pos), 3);
-      g.setAttribute('color', new Float32Array(this.col), 4);
+    if (this._pos.length) {
+      g.setAttribute('position', new Float32Array(this._pos), 3);
+      g.setAttribute('color', new Float32Array(this._col), 4);
       g.drawCount = -1;
     } else g.drawCount = 0;
-    this.pos.length = 0;
-    this.col.length = 0;
+    this._pos.length = 0;
+    this._col.length = 0;
   }
 }
 

@@ -92,33 +92,33 @@ export class UI {
   root: HTMLDivElement;
   scale = 1;
   readonly isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-  private anchors = new Map<Anchor, HTMLDivElement>();
-  private labels: WorldLabel[] = [];
-  private floats: { el: HTMLElement; p: number[]; t: number; dur: number; rise: number }[] = [];
-  private screens = new Map<string, HTMLDivElement>();
-  private o: Required<UIOptions>;
+  private _anchors = new Map<Anchor, HTMLDivElement>();
+  private _labels: WorldLabel[] = [];
+  private _floats: { el: HTMLElement; p: number[]; t: number; dur: number; rise: number }[] = [];
+  private _screens = new Map<string, HTMLDivElement>();
+  private _o: Required<UIOptions>;
 
   constructor(public game: Game, o: UIOptions = {}) {
-    this.o = { reference: [1280, 720], match: 0.5, minScale: 0.35, maxScale: 3, font: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif', ...o };
+    this._o = { reference: [1280, 720], match: 0.5, minScale: 0.35, maxScale: 3, font: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif', ...o };
     if (!document.getElementById('ui-css')) document.head.append(h('style', { id: 'ui-css' }, CSS));
-    this.root = h('div', { class: 'ui-root', style: { fontFamily: this.o.font } });
+    this.root = h('div', { class: 'ui-root', style: { fontFamily: this._o.font } });
     document.body.append(this.root);
-    game.screen.onResize(() => this.layout());
-    this.layout();
-    game.onRender(() => this.sync());
+    game.screen.onResize(() => this._layout());
+    this._layout();
+    game.onRender(() => this._sync());
   }
 
-  private layout() {
-    const [rw, rh] = this.o.reference, s = this.game.screen;
+  private _layout() {
+    const [rw, rh] = this._o.reference, s = this.game.screen;
     const lw = Math.log2(s.width / rw), lh = Math.log2(s.height / rh);
-    this.scale = Math.min(this.o.maxScale, Math.max(this.o.minScale, Math.pow(2, lw + (lh - lw) * this.o.match)));
+    this.scale = Math.min(this._o.maxScale, Math.max(this._o.minScale, Math.pow(2, lw + (lh - lw) * this._o.match)));
     this.root.style.setProperty('--u', String(this.scale));
   }
 
   /** Container for an anchor (created on demand). */
   anchor(a: Anchor) {
-    let el = this.anchors.get(a);
-    if (!el) { el = h('div', { class: `ui-a ui-${a}` }); this.root.append(el); this.anchors.set(a, el); }
+    let el = this._anchors.get(a);
+    if (!el) { el = h('div', { class: `ui-a ui-${a}` }); this.root.append(el); this._anchors.set(a, el); }
     return el;
   }
   /** Add an element at an anchor. */
@@ -150,18 +150,18 @@ export class UI {
     const scr = h('div', { class: 'ui-screen hidden' }, panel);
     scr.addEventListener('pointerdown', (e) => e.stopPropagation());
     this.root.append(scr);
-    this.screens.set(name, scr);
+    this._screens.set(name, scr);
     return panel;
   }
-  show(name: string) { this.screens.get(name)?.classList.remove('hidden'); }
-  hide(name?: string) { for (const [n, s] of this.screens) if (!name || n === name) s.classList.add('hidden'); }
-  isShown(name: string) { return !this.screens.get(name)?.classList.contains('hidden'); }
+  show(name: string) { this._screens.get(name)?.classList.remove('hidden'); }
+  hide(name?: string) { for (const [n, s] of this._screens) if (!name || n === name) s.classList.add('hidden'); }
+  isShown(name: string) { return !this._screens.get(name)?.classList.contains('hidden'); }
 
   /** Element that follows a 3D node/point (name tags, HP bars). Remove with `el.remove()`. */
   worldLabel(target: Node | (() => V3), content: Child, offset: V3 = [0, 2, 0]): HTMLElement {
     const el = h('div', { class: 'ui-wl' }, content);
     this.root.append(el);
-    this.labels.push({ el, target, offset: [offset[0], offset[1], offset[2]] });
+    this._labels.push({ el, target, offset: [offset[0], offset[1], offset[2]] });
     return el;
   }
 
@@ -169,7 +169,7 @@ export class UI {
   floatText(text: string, at: V3, color = '#fff', duration = 0.9, rise = 60) {
     const el = h('div', { class: 'ui-float', style: { color } }, text);
     this.root.append(el);
-    this.floats.push({ el, p: [at[0], at[1], at[2]], t: 0, dur: duration, rise });
+    this._floats.push({ el, p: [at[0], at[1], at[2]], t: 0, dur: duration, rise });
   }
 
   toast(msg: string, duration = 1.5, a: Anchor = 'top') {
@@ -236,11 +236,11 @@ export class UI {
     return this.add(b, a);
   }
 
-  private sync() {
+  private _sync() {
     const g = this.game, cam = g.camera, W = g.screen.width, H = g.screen.height, p = v3(), s = v3();
-    for (let i = this.labels.length - 1; i >= 0; i--) {
-      const l = this.labels[i];
-      if (!l.el.isConnected) { this.labels.splice(i, 1); continue; }
+    for (let i = this._labels.length - 1; i >= 0; i--) {
+      const l = this._labels[i];
+      if (!l.el.isConnected) { this._labels.splice(i, 1); continue; }
       if (typeof l.target === 'function') p.set(l.target()); else l.target.worldPosition(p);
       p[0] += l.offset[0]; p[1] += l.offset[1]; p[2] += l.offset[2];
       cam.worldToScreen(p, W, H, s);
@@ -249,11 +249,11 @@ export class UI {
       if (vis) l.el.style.transform = `translate(${s[0].toFixed(1)}px,${s[1].toFixed(1)}px) translate(-50%,-100%)`;
     }
     const dt = g.time.dt;
-    for (let i = this.floats.length - 1; i >= 0; i--) {
-      const f = this.floats[i];
+    for (let i = this._floats.length - 1; i >= 0; i--) {
+      const f = this._floats[i];
       f.t += dt;
       const k = f.t / f.dur;
-      if (k >= 1) { f.el.remove(); this.floats.splice(i, 1); continue; }
+      if (k >= 1) { f.el.remove(); this._floats.splice(i, 1); continue; }
       cam.worldToScreen(f.p, W, H, s);
       const y = s[1] - f.rise * this.scale * (1 - (1 - k) * (1 - k));
       f.el.style.transform = `translate(${s[0].toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%) scale(${(k < 0.15 ? 0.6 + k * 4 : 1).toFixed(2)})`;

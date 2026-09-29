@@ -4,7 +4,7 @@ import { Screen, type ScreenOptions } from '../platform/screen';
 import { Input } from '../platform/input';
 import { Scene } from '../scene/scene';
 import { Camera } from '../scene/camera';
-import { tweens } from '../anim/tween';
+import { frameHooks } from './hooks';
 
 /** Engine subsystem hooked into the loop (physics worlds, animators, UI...). */
 export interface System {
@@ -39,31 +39,31 @@ export class Game {
   running = false;
   paused = false;
   readonly fixedStep: number;
-  private fns: { update: Fn[]; fixed: Fn[]; late: Fn[]; render: Fn[] } = { update: [], fixed: [], late: [], render: [] };
-  private acc = 0;
-  private last = 0;
-  private raf = 0;
+  private _fns: { update: Fn[]; fixed: Fn[]; late: Fn[]; render: Fn[] } = { update: [], fixed: [], late: [], render: [] };
+  private _acc = 0;
+  private _last = 0;
+  private _raf = 0;
 
   constructor(public device: Device, public renderer: Renderer, public screen: Screen, public input: Input, o: GameOptions) {
     this.fixedStep = o.fixedStep ?? 1 / 60;
     this.camera.position[2] = 5;
     this.scene.add(this.camera);
-    if (o.pauseOnHidden ?? true) document.addEventListener('visibilitychange', () => { this.paused = document.hidden; this.last = 0; });
+    if (o.pauseOnHidden ?? true) document.addEventListener('visibilitychange', () => { this.paused = document.hidden; this._last = 0; });
   }
 
   get canvas() { return this.device.canvas; }
 
   /** Per-frame callback. Returns unsubscribe. */
-  onUpdate(fn: Fn) { return this.on('update', fn); }
+  onUpdate(fn: Fn) { return this._on('update', fn); }
   /** Fixed-step callback (runs before physics step). */
-  onFixedUpdate(fn: Fn) { return this.on('fixed', fn); }
+  onFixedUpdate(fn: Fn) { return this._on('fixed', fn); }
   /** After update & physics sync (camera follow goes here). */
-  onLateUpdate(fn: Fn) { return this.on('late', fn); }
+  onLateUpdate(fn: Fn) { return this._on('late', fn); }
   /** After rendering (UI sync). */
-  onRender(fn: Fn) { return this.on('render', fn); }
-  private on(k: keyof Game['fns'], fn: Fn) {
-    this.fns[k].push(fn);
-    return () => { this.fns[k] = this.fns[k].filter((f) => f !== fn); };
+  onRender(fn: Fn) { return this._on('render', fn); }
+  private _on(k: keyof Game['_fns'], fn: Fn) {
+    this._fns[k].push(fn);
+    return () => { this._fns[k] = this._fns[k].filter((f) => f !== fn); };
   }
 
   addSystem<T extends System>(s: T): T { this.systems.push(s); return s; }
@@ -72,19 +72,19 @@ export class Game {
   start() {
     if (this.running) return;
     this.running = true;
-    this.last = 0;
+    this._last = 0;
     const loop = (t: number) => {
-      this.raf = requestAnimationFrame(loop);
+      this._raf = requestAnimationFrame(loop);
       this.frame(t / 1000);
     };
-    this.raf = requestAnimationFrame(loop);
+    this._raf = requestAnimationFrame(loop);
   }
-  stop() { this.running = false; cancelAnimationFrame(this.raf); }
+  stop() { this.running = false; cancelAnimationFrame(this._raf); }
 
   /** Advance one frame (called by the loop; can be called manually for tests). */
   frame(now: number) {
-    const raw = this.last ? Math.min(now - this.last, 0.1) : this.fixedStep;
-    this.last = now;
+    const raw = this._last ? Math.min(now - this._last, 0.1) : this.fixedStep;
+    this._last = now;
     if (this.paused) return;
     const dt = raw * this.time.scale;
     const T = this.time;
@@ -95,29 +95,29 @@ export class Game {
     this.input.poll();
 
     // fixed steps
-    this.acc += dt;
+    this._acc += dt;
     let steps = 0;
-    while (this.acc >= this.fixedStep && steps < 5) {
-      for (const f of this.fns.fixed) f(this.fixedStep);
+    while (this._acc >= this.fixedStep && steps < 5) {
+      for (const f of this._fns.fixed) f(this.fixedStep);
       for (const s of this.systems) s.fixedUpdate?.(this.fixedStep);
-      this.acc -= this.fixedStep;
+      this._acc -= this.fixedStep;
       steps++;
     }
-    if (steps === 5) this.acc = 0;
-    T.alpha = this.acc / this.fixedStep;
+    if (steps === 5) this._acc = 0;
+    T.alpha = this._acc / this.fixedStep;
 
-    for (const f of this.fns.update) f(dt);
-    tweens.update(dt);
+    for (const f of this._fns.update) f(dt);
+    for (const f of frameHooks) f(dt);
     this.scene.updateScripts(dt);
     for (const s of this.systems) s.update?.(dt, T.alpha);
-    for (const f of this.fns.late) f(dt);
+    for (const f of this._fns.late) f(dt);
 
     this.scene.updateMatrices();
     for (const s of this.systems) s.preRender?.(dt);
     this.renderer.time = T.elapsed;
     this.renderer.render(this.scene, this.camera);
     for (const s of this.systems) s.postRender?.(dt);
-    for (const f of this.fns.render) f(dt);
+    for (const f of this._fns.render) f(dt);
     this.input.endFrame();
   }
 }

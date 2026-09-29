@@ -32,6 +32,12 @@ function shaderPlugin(): Plugin {
 
 function htmlInputs() {
   const inputs: Record<string, string> = {};
+  // EXAMPLE=runner vite build -> build a single example/game (for accurate size measurements)
+  const only = process.env.EXAMPLE;
+  if (only) {
+    for (const dir of ['examples', 'games']) if (existsSync(`${dir}/${only}/index.html`)) inputs[only] = resolve(dir, only, 'index.html');
+    return inputs;
+  }
   for (const dir of ['examples', 'games']) {
     if (!existsSync(dir)) continue;
     if (existsSync(`${dir}/index.html`)) inputs[`${dir}-index`] = resolve(dir, 'index.html');
@@ -62,6 +68,8 @@ export default defineConfig({
       module: true,
       toplevel: true,
       compress: { passes: 3, unsafe_arrows: true, unsafe_methods: true, pure_getters: true },
+      // private members are named _x and mangled (they never cross module/chunk boundaries)
+      mangle: { properties: { regex: /^_/ } },
       format: { comments: false },
     },
     rollupOptions: { input: htmlInputs() },

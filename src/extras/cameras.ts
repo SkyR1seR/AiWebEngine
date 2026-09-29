@@ -28,16 +28,16 @@ export class OrbitControls implements Script {
   yaw: number;
   pitch: number;
   o: Required<Omit<OrbitOptions, 'target' | 'distance' | 'yaw' | 'pitch'>>;
-  private cy: number;
-  private cp: number;
-  private cd: number;
-  private pinch = 0;
+  private _cy: number;
+  private _cp: number;
+  private _cd: number;
+  private _pinch = 0;
 
   constructor(public game: Game, o: OrbitOptions = {}) {
     this.target = v3(...((o.target ?? [0, 0, 0]) as [number, number, number]));
-    this.distance = this.cd = o.distance ?? 10;
-    this.yaw = this.cy = o.yaw ?? 0;
-    this.pitch = this.cp = o.pitch ?? 0.5;
+    this.distance = this._cd = o.distance ?? 10;
+    this.yaw = this._cy = o.yaw ?? 0;
+    this.pitch = this._cp = o.pitch ?? 0.5;
     this.o = { minDistance: 2, maxDistance: 100, minPitch: -1.4, maxPitch: 1.4, sensitivity: 0.006, smooth: 12, autoRotate: 0, ...o } as any;
     game.camera.addScript(this);
   }
@@ -47,10 +47,10 @@ export class OrbitControls implements Script {
     if (inp.touches.size === 2) {
       const [a, b] = [...inp.touches.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (this.pinch) this.distance *= this.pinch / d;
-      this.pinch = d;
+      if (this._pinch) this.distance *= this._pinch / d;
+      this._pinch = d;
     } else {
-      this.pinch = 0;
+      this._pinch = 0;
       if (inp.pointer.down) {
         this.yaw -= inp.pointer.dx * o.sensitivity;
         this.pitch += inp.pointer.dy * o.sensitivity;
@@ -61,11 +61,11 @@ export class OrbitControls implements Script {
     this.distance = clamp(this.distance, o.minDistance, o.maxDistance);
     this.pitch = clamp(this.pitch, o.minPitch, o.maxPitch);
     const k = o.smooth ? damp(o.smooth, dt) : 1;
-    this.cy += (this.yaw - this.cy) * k;
-    this.cp += (this.pitch - this.cp) * k;
-    this.cd += (this.distance - this.cd) * k;
-    const t = this.target, cp = Math.cos(this.cp);
-    cam.setPosition(t[0] + Math.sin(this.cy) * cp * this.cd, t[1] + Math.sin(this.cp) * this.cd, t[2] + Math.cos(this.cy) * cp * this.cd);
+    this._cy += (this.yaw - this._cy) * k;
+    this._cp += (this.pitch - this._cp) * k;
+    this._cd += (this.distance - this._cd) * k;
+    const t = this.target, cp = Math.cos(this._cp);
+    cam.setPosition(t[0] + Math.sin(this._cy) * cp * this._cd, t[1] + Math.sin(this._cp) * this._cd, t[2] + Math.cos(this._cy) * cp * this._cd);
     cam.lookAt(t);
   }
 }
@@ -101,30 +101,30 @@ export class FollowCamera implements Script {
   pitch: number;
   distance: number;
   o: FollowOptions;
-  private pos = v3();
-  private look = v3();
-  private cur: number;
-  private dragId = -1;
+  private _pos = v3();
+  private _look = v3();
+  private _cur: number;
+  private _dragId = -1;
 
   constructor(public game: Game, public target: Node, o: FollowOptions = {}) {
     this.o = o;
     this.yaw = o.yaw ?? 0;
     this.pitch = o.pitch ?? 0.35;
-    this.distance = this.cur = o.distance ?? 5;
+    this.distance = this._cur = o.distance ?? 5;
     target.updateWorld();
-    target.worldPosition(this.look);
-    this.look[1] += o.lookHeight ?? 1.5;
-    this.pos.set(this.look);
+    target.worldPosition(this._look);
+    this._look[1] += o.lookHeight ?? 1.5;
+    this._pos.set(this._look);
     game.camera.addScript(this);
     game.canvas.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch' || !(o.touchRightHalf ?? true) || e.offsetX > game.screen.width / 2) this.dragId = e.pointerId;
+      if (e.pointerType !== 'touch' || !(o.touchRightHalf ?? true) || e.offsetX > game.screen.width / 2) this._dragId = e.pointerId;
     });
-    const up = (e: PointerEvent) => { if (e.pointerId === this.dragId) this.dragId = -1; };
+    const up = (e: PointerEvent) => { if (e.pointerId === this._dragId) this._dragId = -1; };
     game.canvas.addEventListener('pointerup', up);
     game.canvas.addEventListener('pointercancel', up);
     game.canvas.addEventListener('pointermove', (e) => {
       if (!(o.mouseLook ?? true)) return;
-      if (e.pointerId === this.dragId || document.pointerLockElement === game.canvas) {
+      if (e.pointerId === this._dragId || document.pointerLockElement === game.canvas) {
         const s = o.sensitivity ?? 0.005;
         this.yaw -= e.movementX * s;
         this.pitch += e.movementY * s;
@@ -147,18 +147,18 @@ export class FollowCamera implements Script {
     this.pitch = clamp(this.pitch, o.minPitch ?? -0.6, o.maxPitch ?? 1.3);
     const t = this.target.worldPosition(v3());
     t[1] += o.lookHeight ?? 1.5;
-    v3lerp(this.look, this.look, t, damp(o.smooth ?? 15, dt));
+    v3lerp(this._look, this._look, t, damp(o.smooth ?? 15, dt));
     const cp = Math.cos(this.pitch);
     const dir = [Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp];
     let d = this.distance;
     if (o.physics) {
-      const hit = o.physics.raycast(this.look, dir, d + 0.3, { ignore: o.ignore });
+      const hit = o.physics.raycast(this._look, dir, d + 0.3, { ignore: o.ignore });
       if (hit) d = Math.max(0.5, hit.distance - 0.3);
     }
     // zoom in fast, out smoothly
-    this.cur = d < this.cur ? d : this.cur + (d - this.cur) * damp(4, dt);
-    for (let i = 0; i < 3; i++) this.pos[i] = this.look[i] + dir[i] * this.cur;
-    cam.setPosition(this.pos[0], this.pos[1], this.pos[2]);
-    cam.lookAt(this.look);
+    this._cur = d < this._cur ? d : this._cur + (d - this._cur) * damp(4, dt);
+    for (let i = 0; i < 3; i++) this._pos[i] = this._look[i] + dir[i] * this._cur;
+    cam.setPosition(this._pos[0], this._pos[1], this._pos[2]);
+    cam.lookAt(this._look);
   }
 }

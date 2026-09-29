@@ -45,18 +45,18 @@ export class CharacterController {
   enabled = true;
   /** called when landing with the impact speed */
   onLand?: (speed: number) => void;
-  private desired = [0, 0];
-  private jumpV = 0;
-  private cosSlope: number;
-  private off: () => void;
-  private airTime = 0;
+  private _desired = [0, 0];
+  private _jumpV = 0;
+  private _cosSlope: number;
+  private _off: () => void;
+  private _airTime = 0;
 
   constructor(public world: PhysicsWorld, public node: Node, o: ControllerOptions = {}) {
     this.radius = o.radius ?? 0.35;
     this.height = Math.max(o.height ?? 1.8, this.radius * 2);
     this.stepHeight = o.stepHeight ?? 0.35;
     this.maxSlope = o.maxSlope ?? 50;
-    this.cosSlope = Math.cos((this.maxSlope * Math.PI) / 180);
+    this._cosSlope = Math.cos((this.maxSlope * Math.PI) / 180);
     this.gravityScale = o.gravityScale ?? 2;
     this.pushPower = o.pushPower ?? 2;
     this.body = new Body({
@@ -66,15 +66,15 @@ export class CharacterController {
     this.body.data.controller = this;
     this.body.integrate = false;
     world.addBody(this.body);
-    this.off = world.onPreStep((dt) => this.step(dt));
+    this._off = world.onPreStep((dt) => this._step(dt));
   }
 
   /** Desired horizontal velocity (world units/s). Call every frame. */
-  move(vx: number, vz: number) { this.desired[0] = vx; this.desired[1] = vz; }
+  move(vx: number, vz: number) { this._desired[0] = vx; this._desired[1] = vz; }
   /** Jump with upward speed if grounded (or within coyote time). Returns true if jumped. */
   jump(speed = 6) {
-    if (!this.grounded && this.airTime > 0.12) return false;
-    this.jumpV = speed;
+    if (!this.grounded && this._airTime > 0.12) return false;
+    this._jumpV = speed;
     return true;
   }
   /** Move instantly to a feet position. */
@@ -83,9 +83,9 @@ export class CharacterController {
     this.body.teleport([p[0], p[1] + this.height / 2, p[2]]);
     this.velocity.fill(0);
   }
-  destroy() { this.off(); this.world.remove(this.body); }
+  destroy() { this._off(); this.world.remove(this.body); }
 
-  private step(dt: number) {
+  private _step(dt: number) {
     if (!this.enabled) return;
     const b = this.body, v = this.velocity, g = this.world.gravity;
     const start = v3(b.position[0], b.position[1], b.position[2]);
@@ -93,9 +93,9 @@ export class CharacterController {
     if (this.grounded && this.ground && this.ground.type === 'kinematic') {
       for (let i = 0; i < 3; i++) b.position[i] += this.ground.velocity[i] * dt;
     }
-    v[0] = this.desired[0];
-    v[2] = this.desired[1];
-    if (this.jumpV) { v[1] = this.jumpV; this.jumpV = 0; this.grounded = false; this.airTime = 1; }
+    v[0] = this._desired[0];
+    v[2] = this._desired[1];
+    if (this._jumpV) { v[1] = this._jumpV; this._jumpV = 0; this.grounded = false; this._airTime = 1; }
     else if (this.grounded) v[1] = Math.min(v[1], 0);
     for (let i = 0; i < 3; i++) v[i] += g[i] * this.gravityScale * dt * (i === 1 ? 1 : 0);
     if (v[1] < -50) v[1] = -50;
@@ -105,19 +105,19 @@ export class CharacterController {
     this.ground = null;
 
     // horizontal move (low obstacles are climbed), then vertical move
-    this.slide([v[0] * dt, 0, v[2] * dt], false, wasGrounded || this.airTime < 0.2);
-    this.slide([0, v[1] * dt, 0], true);
+    this._slide([v[0] * dt, 0, v[2] * dt], false, wasGrounded || this._airTime < 0.2);
+    this._slide([0, v[1] * dt, 0], true);
     // ground snap (walking down slopes/stairs)
     if (!this.grounded && wasGrounded && v[1] <= 0) {
       const before = v3(b.position[0], b.position[1], b.position[2]);
-      this.slide([0, -this.stepHeight, 0], true);
+      this._slide([0, -this.stepHeight, 0], true);
       if (!this.grounded) b.position.set(before);
     }
     if (this.grounded) {
       if (!wasGrounded && fallSpeed > 1) this.onLand?.(fallSpeed);
       v[1] = 0;
-      this.airTime = 0;
-    } else this.airTime += dt;
+      this._airTime = 0;
+    } else this._airTime += dt;
     // kinematic velocity so dynamic bodies get pushed correctly
     for (let i = 0; i < 3; i++) b.velocity[i] = (b.position[i] - start[i]) / dt;
     b.prevPos.set(start);
@@ -127,7 +127,7 @@ export class CharacterController {
   }
 
   /** Move by delta in small sub-steps, resolving penetrations. */
-  private slide(delta: number[], vertical: boolean, canStep = false) {
+  private _slide(delta: number[], vertical: boolean, canStep = false) {
     const b = this.body, v = this.velocity;
     const feet = () => b.position[1] - this.height / 2;
     const dist = Math.hypot(delta[0], delta[1], delta[2]);
@@ -146,7 +146,7 @@ export class CharacterController {
             if (c.body.mass < 5) continue;
           }
           let nx = c.n[0], ny = c.n[1], nz = c.n[2];
-          const walkable = ny > this.cosSlope;
+          const walkable = ny > this._cosSlope;
           if (walkable) {
             // walkable: resolve only vertically so we don't slide on slopes or get pushed off ledges
             b.position[1] += c.d / ny;

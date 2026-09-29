@@ -177,14 +177,14 @@ export class PostFX implements PostProcess {
   fxaa: boolean;
   /** full-screen color overlay (rgb, a = amount) — use for fades and damage flashes */
   fade = new Float32Array(4);
-  private d: Device | null = null;
-  private chain: GpuTexture[] = [];
-  private ldr: GpuTexture | null = null;
-  private black: GpuTexture | null = null;
-  private ubos: GpuBuffer[] = [];
-  private bgs = new Map<number, { bg: GpuBindGroup; src: GpuTexture; b2: GpuTexture }>();
-  private size = '';
-  private u = new Float32Array(16);
+  private _d: Device | null = null;
+  private _chain: GpuTexture[] = [];
+  private _ldr: GpuTexture | null = null;
+  private _black: GpuTexture | null = null;
+  private _ubos: GpuBuffer[] = [];
+  private _bgs = new Map<number, { bg: GpuBindGroup; src: GpuTexture; b2: GpuTexture }>();
+  private _size = '';
+  private _u = new Float32Array(16);
 
   constructor(o: PostOptions = {}) {
     const b = typeof o.bloom === 'object' ? o.bloom : { enabled: o.bloom ?? true };
@@ -198,34 +198,34 @@ export class PostFX implements PostProcess {
     this.fxaa = o.fxaa ?? true;
   }
 
-  private ensure(r: Renderer) {
-    const d = (this.d = r.device);
+  private _ensure(r: Renderer) {
+    const d = (this._d = r.device);
     const key = `${d.width}x${d.height}:${this.bloom.levels}:${this.fxaa}`;
-    if (key === this.size) return;
-    this.size = key;
-    for (const t of this.chain) d.destroyTexture(t);
-    if (this.ldr) d.destroyTexture(this.ldr);
-    this.bgs.clear();
-    this.chain = [];
+    if (key === this._size) return;
+    this._size = key;
+    for (const t of this._chain) d.destroyTexture(t);
+    if (this._ldr) d.destroyTexture(this._ldr);
+    this._bgs.clear();
+    this._chain = [];
     let w = d.width, h = d.height;
     for (let i = 0; i < this.bloom.levels; i++) {
       w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
-      this.chain.push(d.createTexture({ width: w, height: h, format: r.hdrFormat, target: true }));
+      this._chain.push(d.createTexture({ width: w, height: h, format: r.hdrFormat, target: true }));
     }
-    this.ldr = this.fxaa ? d.createTexture({ width: d.width, height: d.height, format: 'rgba8', target: true }) : null;
-    this.black ??= d.createTexture({ width: 1, height: 1, data: new Uint8Array(4) });
+    this._ldr = this.fxaa ? d.createTexture({ width: d.width, height: d.height, format: 'rgba8', target: true }) : null;
+    this._black ??= d.createTexture({ width: 1, height: 1, data: new Uint8Array(4) });
   }
 
-  private pass(r: Renderer, idx: number, def: string, src: GpuTexture, dst: GpuTexture | 'screen', blend: Blend, fill: (u: Float32Array) => void, bloom?: GpuTexture) {
-    const d = this.d!;
-    while (this.ubos.length <= idx) this.ubos.push(d.createBuffer('uniform', 64));
-    const u = this.u;
+  private _pass(r: Renderer, idx: number, def: string, src: GpuTexture, dst: GpuTexture | 'screen', blend: Blend, fill: (u: Float32Array) => void, bloom?: GpuTexture) {
+    const d = this._d!;
+    while (this._ubos.length <= idx) this._ubos.push(d.createBuffer('uniform', 64));
+    const u = this._u;
     u.fill(0);
     fill(u);
-    d.writeBuffer(this.ubos[idx], u);
-    const b2 = bloom ?? this.black!;
-    let e = this.bgs.get(idx);
-    if (!e || e.src !== src || e.b2 !== b2) { e = { bg: d.createBindGroup(LAYOUT, [this.ubos[idx], src, b2]), src, b2 }; this.bgs.set(idx, e); }
+    d.writeBuffer(this._ubos[idx], u);
+    const b2 = bloom ?? this._black!;
+    let e = this._bgs.get(idx);
+    if (!e || e.src !== src || e.b2 !== b2) { e = { bg: d.createBindGroup(LAYOUT, [this._ubos[idx], src, b2]), src, b2 }; this._bgs.set(idx, e); }
     const bg = e.bg;
     const fmt: TexFormat | 'screen' = dst === 'screen' ? 'screen' : dst.format;
     const pipe = r.customPipeline(`post|${def}|${fmt}|${blend}`, () => d.createPipeline({
@@ -240,28 +240,28 @@ export class PostFX implements PostProcess {
   }
 
   render(r: Renderer, color: GpuTexture) {
-    this.ensure(r);
-    const d = this.d!, b = this.bloom, ch = this.chain;
+    this._ensure(r);
+    const d = this._d!, b = this.bloom, ch = this._chain;
     let k = 0;
     const useBloom = b.enabled && b.intensity > 0 && ch.length > 0;
     if (useBloom) {
-      this.pass(r, k++, 'PREFILTER', color, ch[0], 'opaque', (u) => { u[0] = 1 / color.width; u[1] = 1 / color.height; u[2] = b.threshold; });
+      this._pass(r, k++, 'PREFILTER', color, ch[0], 'opaque', (u) => { u[0] = 1 / color.width; u[1] = 1 / color.height; u[2] = b.threshold; });
       for (let i = 1; i < ch.length; i++) {
         const s = ch[i - 1];
-        this.pass(r, k++, 'DOWN', s, ch[i], 'opaque', (u) => { u[0] = 1 / s.width; u[1] = 1 / s.height; });
+        this._pass(r, k++, 'DOWN', s, ch[i], 'opaque', (u) => { u[0] = 1 / s.width; u[1] = 1 / s.height; });
       }
       for (let i = ch.length - 1; i > 0; i--) {
         const s = ch[i];
-        this.pass(r, k++, 'UP', s, ch[i - 1], 'add', (u) => { u[0] = 1 / s.width; u[1] = 1 / s.height; u[3] = b.radius; });
+        this._pass(r, k++, 'UP', s, ch[i - 1], 'add', (u) => { u[0] = 1 / s.width; u[1] = 1 / s.height; u[3] = b.radius; });
       }
     }
-    const target = this.fxaa ? this.ldr! : 'screen';
-    this.pass(r, k++, 'COMPOSITE', color, target, 'opaque', (u) => {
+    const target = this.fxaa ? this._ldr! : 'screen';
+    this._pass(r, k++, 'COMPOSITE', color, target, 'opaque', (u) => {
       u[2] = useBloom ? b.intensity : 0;
       u[4] = this.exposure; u[5] = this.tonemap === 'aces' ? 1 : 0; u[6] = this.contrast; u[7] = this.saturation;
       u[8] = this.vignette; u[9] = this.vignetteSoftness;
       u.set(this.fade, 12);
     }, useBloom ? ch[0] : undefined);
-    if (this.fxaa) this.pass(r, k++, 'FXAA', this.ldr!, 'screen', 'opaque', (u) => { u[0] = 1 / d.width; u[1] = 1 / d.height; });
+    if (this.fxaa) this._pass(r, k++, 'FXAA', this._ldr!, 'screen', 'opaque', (u) => { u[0] = 1 / d.width; u[1] = 1 / d.height; });
   }
 }

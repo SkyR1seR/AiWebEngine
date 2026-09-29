@@ -14,35 +14,35 @@ export class CameraShake {
   maxOffset = 0.35;
   maxAngle = 0.06;
   frequency = 22;
-  private t = Math.random() * 100;
-  private off = [0, 0, 0];
-  private q = quat();
+  private _t = Math.random() * 100;
+  private _off = [0, 0, 0];
+  private _q = quat();
 
   constructor(public game: Game, public camera: Node = game.camera) {
-    game.onUpdate(() => this.restore());
-    game.onLateUpdate((dt) => this.apply(dt));
+    game.onUpdate(() => this._restore());
+    game.onLateUpdate((dt) => this._apply(dt));
   }
   add(amount: number) { this.trauma = Math.min(1, this.trauma + amount); }
 
-  private restore() {
+  private _restore() {
     const c = this.camera;
-    for (let i = 0; i < 3; i++) c.position[i] -= this.off[i];
-    qmul(c.rotation, c.rotation, qconj(quat(), this.q));
-    this.off = [0, 0, 0];
-    this.q = quat();
+    for (let i = 0; i < 3; i++) c.position[i] -= this._off[i];
+    qmul(c.rotation, c.rotation, qconj(quat(), this._q));
+    this._off = [0, 0, 0];
+    this._q = quat();
   }
-  private apply(dt: number) {
-    this.restore();
+  private _apply(dt: number) {
+    this._restore();
     this.trauma = Math.max(0, this.trauma - this.decay * dt);
     if (this.trauma <= 0) return;
-    this.t += dt * this.frequency;
-    const s = this.trauma * this.trauma, t = this.t;
+    this._t += dt * this.frequency;
+    const s = this.trauma * this.trauma, t = this._t;
     const n = (k: number) => Math.sin(t * 1.0 + k) * 0.6 + Math.sin(t * 2.3 + k * 3.1) * 0.3 + Math.sin(t * 4.7 + k * 7.3) * 0.1;
-    this.off = [n(1) * this.maxOffset * s, n(2) * this.maxOffset * s, n(3) * this.maxOffset * s * 0.5];
-    qeuler(this.q, n(4) * this.maxAngle * s, n(5) * this.maxAngle * s, n(6) * this.maxAngle * s);
+    this._off = [n(1) * this.maxOffset * s, n(2) * this.maxOffset * s, n(3) * this.maxOffset * s * 0.5];
+    qeuler(this._q, n(4) * this.maxAngle * s, n(5) * this.maxAngle * s, n(6) * this.maxAngle * s);
     const c = this.camera;
-    for (let i = 0; i < 3; i++) c.position[i] += this.off[i];
-    qmul(c.rotation, c.rotation, this.q);
+    for (let i = 0; i < 3; i++) c.position[i] += this._off[i];
+    qmul(c.rotation, c.rotation, this._q);
   }
 }
 
