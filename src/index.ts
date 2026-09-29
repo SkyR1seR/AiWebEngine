@@ -16,3 +16,5 @@ export * from './geometry/primitives';
 export { Material, lambert, unlit, toon, standard, type MaterialOptions, type Lighting } from './materials/material';
 export { Skin } from './anim/skin';
 export { tween, tweens, wait, after, every, Ease, Tween, TweenManager, type TweenOptions, type EaseName } from './anim/tween';
+export { Animator, AnimationClip, Action, type Track, type PlayOptions, type ClipEvent } from './anim/animator';
+export { Model } from './scene/model';
