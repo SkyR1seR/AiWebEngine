@@ -25,7 +25,8 @@
     "typecheck": "tsc --noEmit",
     "new": "node tools/new-game.mjs",
     "analyze": "node tools/analyze.mjs",
-    "export": "node tools/export.mjs"
+    "export": "node tools/export.mjs",
+    "smoke": "node tools/smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

@@ -61,6 +61,7 @@ game.onUpdate((dt) => cube.setRotation(0, game.time.elapsed, 0));
 | `npm run typecheck` | проверка типов |
 | `npm run new <имя>` | заготовка игры в `games/<имя>` |
 | `npm run export <имя> -- --yandex` | архив `export/<имя>.zip` для Яндекс Игр (без `--yandex` — для любого хостинга) |
+| `npm run smoke <имя>` | проверка экспорта как на портале: headless Chrome, iframe, фейковый SDK, WebGPU и WebGL2 |
 
 ## Публикация (Яндекс Игры)
 

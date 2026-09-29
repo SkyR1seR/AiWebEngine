@@ -1,5 +1,6 @@
 import type { Game } from '../core/game';
 import { sound } from '../audio/index';
+import { boot } from '../core/hooks';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const YaGames: { init(): Promise<any> } | undefined;
@@ -8,7 +9,9 @@ declare const YaGames: { init(): Promise<any> } | undefined;
  * Yandex Games SDK wrapper. Safe to use outside Yandex (every call becomes a no-op),
  * so the same build runs locally and on the portal.
  *
- *   const ya = await yandex(game);   // after assets are loaded
+ *   const yaInit = yandex();         // start SDK init early (in parallel with createGame)
+ *   const game = await createGame();
+ *   const ya = await yaInit; ya.game = game;
  *   ya.ready();                      // required by moderation: game is loaded and playable
  *   ya.gameplayStart() / ya.gameplayStop()
  *   await ya.showAd();               // fullscreen ad between rounds (game paused + muted meanwhile)
@@ -25,21 +28,24 @@ export class Yandex {
   private _adOpen = false;
   private _playing = false;
 
-  constructor(public game: Game) {}
+  constructor(public game: Game | null = null) {}
 
   get available() { return !!this.sdk; }
 
   /** @internal */
-  async init(timeoutMs = 5000) {
-    if (typeof YaGames === 'undefined') return this;
+  async init(timeoutMs = 10000) {
+    if (typeof YaGames === 'undefined') { boot('sdk: not found (not on Yandex Games)'); return this; }
+    boot('sdk: init');
     try {
       this.sdk = await Promise.race([YaGames.init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))]);
       this.lang = this.sdk.environment?.i18n?.lang ?? this.lang;
       // portal asks to pause (e.g. its own overlays)
       this.sdk.on?.('game_api_pause', () => this.hold(true));
       this.sdk.on?.('game_api_resume', () => this.hold(false));
+      boot('sdk: ok, lang=' + this.lang);
     } catch (e) {
       console.warn('Yandex SDK init failed', e);
+      boot('sdk: failed (' + e + ')');
       this.sdk = null;
     }
     return this;
@@ -49,7 +55,9 @@ export class Yandex {
   ready() {
     if (this._readySent) return;
     this._readySent = true;
-    this.sdk?.features?.LoadingAPI?.ready();
+    const api = this.sdk?.features?.LoadingAPI;
+    api?.ready();
+    boot(api ? 'ready: LoadingAPI.ready() sent' : 'ready (no SDK)');
   }
   /** Active gameplay started (level/run begins). */
   gameplayStart() {
@@ -69,10 +77,10 @@ export class Yandex {
     if (on) {
       this._wasMuted = sound.muted;
       sound.mute(true);
-      this.game.pause();
+      this.game?.pause();
     } else {
       sound.mute(this._wasMuted);
-      this.game.resume();
+      this.game?.resume();
     }
   }
 
@@ -124,6 +132,6 @@ export class Yandex {
 }
 
 /** Init the Yandex Games SDK (no-op wrapper when the page isn't on Yandex). */
-export function yandex(game: Game, timeoutMs?: number) {
+export function yandex(game: Game | null = null, timeoutMs?: number) {
   return new Yandex(game).init(timeoutMs);
 }

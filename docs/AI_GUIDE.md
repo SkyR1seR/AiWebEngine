@@ -132,8 +132,12 @@ u(24) → 'calc(var(--u)*24px)' for scaled custom CSS. Classes: ui-btn ui-panel 
 Never upload sources (`.ts` is served as `video/mp2t` and the module fails to load). Build with
 `npm run export <name> -- --yandex` → `export/<name>.zip` (index.html at the archive root, forward-slash paths,
 `<script src="/sdk.js">` injected). Without `--yandex` it is a generic static build.
+The export injects an on-screen diagnostics overlay (errors + "not ready after 12 s, last boot stage: …"; `--no-overlay` to skip);
+the engine logs startup stages as `[aiwe] ...` in the console. Verify with `npm run smoke <name>` before giving the zip to the user.
 ```ts
-const ya = await yandex(game);          // right after createGame; ya.lang = portal language ('ru', 'en', ...)
+const yaInit = yandex();                 // start SDK init first, in parallel with the engine
+const game = await createGame();
+const ya = await yaInit; ya.game = game; // ya.lang = portal language ('ru', 'en', ...)
 ya.ready();                              // REQUIRED by moderation: once the first screen is interactive
 ya.gameplayStart(); ya.gameplayStop();   // around active play (runs/levels)
 await ya.showAd();                       // interstitial between rounds; game paused + muted while it shows

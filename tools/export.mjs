@@ -1,6 +1,7 @@
 // Export one game as a self-contained folder + zip with index.html at the root (for game portals).
 // Usage: npm run export <name> [-- --yandex] [-- --no-zip]
-//   --yandex  inject <script src="/sdk.js"> (Yandex Games SDK) into index.html
+//   --yandex      inject <script src="/sdk.js"> (Yandex Games SDK) into index.html
+//   --no-overlay  don't inject the on-screen error/boot diagnostics
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { gzipSync, deflateRawSync, crc32 } from 'node:zlib';
@@ -25,11 +26,20 @@ await build({
 
 const htmlPath = join(out, 'index.html');
 if (!existsSync(htmlPath)) throw new Error('build produced no index.html');
-if (args.includes('--yandex')) {
-  let html = readFileSync(htmlPath, 'utf8');
-  if (!html.includes('/sdk.js')) html = html.replace('<head>', '<head>\n  <script src="/sdk.js"></script>');
-  writeFileSync(htmlPath, html);
-}
+// Error overlay: shows uncaught errors / failed script loads on screen, and after 12 s reports the boot stage
+// if the game never became ready (engine marks stages via <html data-boot>). Invisible when all is well.
+const OVERLAY = `<script>(function(){var b,d=document.documentElement;function s(m){try{if(!b){b=document.createElement('pre');b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:2147483647;margin:0;padding:8px;max-height:45%;overflow:auto;background:rgba(150,0,0,.92);color:#fff;font:12px/1.4 monospace;white-space:pre-wrap;pointer-events:auto';(document.body||d).appendChild(b)}b.textContent+=m+'\\n'}catch(e){}}
+addEventListener('error',function(e){var t=e.target;s(t&&t!==window&&(t.src||t.href)?'Failed to load: '+(t.src||t.href):'Error: '+e.message+(e.filename?' @ '+e.filename+':'+e.lineno:''))},true);
+addEventListener('unhandledrejection',function(e){var r=e.reason;s('Unhandled: '+(r&&(r.stack||r.message)||r))});
+var ce=console.error;console.error=function(){s([].map.call(arguments,String).join(' '));return ce.apply(console,arguments)};
+setTimeout(function(){var st=d.dataset.boot||'';if(st.indexOf('ready')!==0)s('Not ready after 12 s. Last boot stage: '+(st||'game script did not start'))},12000)})();</script>`;
+
+let html = readFileSync(htmlPath, 'utf8');
+const head = [];
+if (!args.includes('--no-overlay')) head.push(OVERLAY);
+if (args.includes('--yandex') && !html.includes('/sdk.js')) head.push('<script src="/sdk.js"></script>');
+if (head.length) html = html.replace('<head>', '<head>\n  ' + head.join('\n  '));
+writeFileSync(htmlPath, html);
 
 const files = [];
 const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); statSync(p).isDirectory() ? walk(p) : files.push(p); } };

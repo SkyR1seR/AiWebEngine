@@ -30,6 +30,29 @@ function shaderPlugin(): Plugin {
   };
 }
 
+/**
+ * Fail the build if a lazily loaded chunk (e.g. the webgpu/webgl2 backend) imports from an entry chunk.
+ * Game entries use top-level await (`await createGame()`), so such an import deadlocks at runtime:
+ * the entry waits for the dynamic import, the dynamic chunk waits for the entry to finish evaluating.
+ */
+function noDynamicToEntryImports(): Plugin {
+  return {
+    name: 'no-dynamic-to-entry-imports',
+    apply: 'build',
+    generateBundle(_, bundle) {
+      const entries = new Set(Object.values(bundle).filter((c: any) => c.type === 'chunk' && c.isEntry).map((c) => c.fileName));
+      for (const c of Object.values(bundle) as any[]) {
+        if (c.type !== 'chunk' || !c.isDynamicEntry || c.isEntry) continue;
+        const bad = c.imports.filter((i: string) => entries.has(i));
+        if (bad.length) {
+          this.error(`Lazy chunk ${c.fileName} imports from entry chunk ${bad.join(', ')} (modules: ${Object.keys(c.modules).map((m) => m.split(/[\\/]src[\\/]/).pop()).join(', ')}). ` +
+            'This deadlocks with top-level await in the game entry. Pass the needed values at runtime (see BackendEnv in src/gpu/device.ts) instead of importing them.');
+        }
+      }
+    },
+  };
+}
+
 function htmlInputs() {
   const inputs: Record<string, string> = {};
   // EXAMPLE=runner vite build -> build a single example/game (for accurate size measurements)
@@ -50,7 +73,7 @@ function htmlInputs() {
 }
 
 export default defineConfig({
-  plugins: [shaderPlugin()],
+  plugins: [shaderPlugin(), noDynamicToEntryImports()],
   resolve: {
     alias: [
       { find: /^aiwebengine$/, replacement: resolve('src/index.ts') },

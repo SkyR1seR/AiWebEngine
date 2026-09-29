@@ -7,9 +7,11 @@ import { UI, h, u } from 'aiwebengine/ui';
 import { sound } from 'aiwebengine/audio';
 import { yandex } from 'aiwebengine/yandex';
 
+// Yandex Games SDK (no-op when not running on the portal) — init in parallel with the engine
+const yaInit = yandex();
 const game = await createGame();
-// Yandex Games SDK (no-op when not running on the portal)
-const ya = await yandex(game);
+const ya = await yaInit;
+ya.game = game;
 const ru = ya.lang === 'ru' || ya.lang === 'be' || ya.lang === 'kk' || ya.lang === 'uk' || ya.lang === 'uz';
 const T = ru
   ? { title: 'РАННЕР', hint1: 'Свайп или ← → — смена полосы', hint2: 'Свайп вверх / пробел — прыжок', play: 'ИГРАТЬ', over: 'КОНЕЦ ИГРЫ', retry: 'ЕЩЁ РАЗ', score: 'Очки', best: 'Рекорд', record: 'НОВЫЙ РЕКОРД!' }

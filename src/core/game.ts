@@ -4,7 +4,7 @@ import { Screen, type ScreenOptions } from '../platform/screen';
 import { Input } from '../platform/input';
 import { Scene } from '../scene/scene';
 import { Camera } from '../scene/camera';
-import { frameHooks } from './hooks';
+import { frameHooks, boot } from './hooks';
 
 /** Engine subsystem hooked into the loop (physics worlds, animators, UI...). */
 export interface System {
@@ -141,6 +141,7 @@ export async function createGame(o: GameOptions = {}): Promise<Game> {
     canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%';
     document.body.appendChild(canvas);
   }
+  boot('engine: start');
   const screen = new Screen(canvas, o);
   screen.update(0);
   canvas.width = screen.pixelWidth;
@@ -148,6 +149,7 @@ export async function createGame(o: GameOptions = {}): Promise<Game> {
   const device = await createDevice(canvas, o);
   device.resize(screen.pixelWidth, screen.pixelHeight);
   const game = new Game(device, new Renderer(device), screen, new Input(canvas), o);
+  boot('engine: ' + device.kind);
   if (o.autoStart ?? true) game.start();
   return game;
 }

@@ -2,7 +2,7 @@ import type {
   BindLayout, BindResource, CreateDeviceOptions, Device, GpuBindGroup, GpuBuffer, GpuPipeline, GpuTexture,
   PassDesc, PipelineDesc, RenderPass, TexFormat, TextureDesc, VertexBufferLayout,
 } from './device';
-import type { preprocess as Preprocess } from './preprocess';
+import type { BackendEnv } from './device';
 import { glslLib } from '../shaders/glsl';
 
 interface GLBuf extends GpuBuffer { b: WebGLBuffer; t: number }
@@ -18,7 +18,9 @@ interface GLPipe extends GpuPipeline {
 
 const HEADER = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2DShadow;\n';
 
-export function createWebGL2Device(canvas: HTMLCanvasElement, opts: CreateDeviceOptions, preprocess: typeof Preprocess): Device {
+export function createWebGL2Device(canvas: HTMLCanvasElement, opts: CreateDeviceOptions, env: BackendEnv): Device {
+  // NOTE: only type imports from core modules are allowed in this chunk (see BackendEnv)
+  const { preprocess } = env;
   const gl = canvas.getContext('webgl2', {
     antialias: opts.antialias ?? true,
     alpha: false,

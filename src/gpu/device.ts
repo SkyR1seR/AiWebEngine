@@ -1,4 +1,5 @@
 import { preprocess, type Defines } from './preprocess';
+import { boot } from '../core/hooks';
 
 // Render hardware interface shared by WebGPU and WebGL2 backends.
 
@@ -107,7 +108,16 @@ export interface Device {
   destroy(): void;
 }
 
-export const layoutKey = (l: BindLayout) => (l.key ??= l.entries.map((e) => e.kind + ':' + e.name).join(','));
+/**
+ * Everything a backend chunk needs from the core, passed in at runtime. Backend chunks must NOT import values
+ * from modules in the main chunk: with top-level await in the game entry that creates a module deadlock
+ * (the main chunk waits for the backend import, the backend waits for the main chunk). Types are fine.
+ */
+export interface BackendEnv {
+  preprocess: typeof preprocess;
+  boot: (stage: string) => void;
+  abandoned: () => boolean;
+}
 
 export const vertexFormatSize: Record<VertexFormat, number> = {
   float32: 4, float32x2: 8, float32x3: 12, float32x4: 16, unorm8x4: 4,
@@ -133,15 +143,17 @@ export async function createDevice(canvas: HTMLCanvasElement, opts: CreateDevice
       let abandoned = false;
       const m = await import('./webgpu');
       const d = await Promise.race([
-        m.createWebGPUDevice(canvas, opts, preprocess, () => abandoned),
+        m.createWebGPUDevice(canvas, opts, { preprocess, boot, abandoned: () => abandoned }),
         new Promise<null>((r) => setTimeout(() => r(null), opts.webgpuTimeout ?? 4000)),
       ]);
       if (d) return d;
       abandoned = true;
+      boot('webgpu: unavailable or timed out, using webgl2');
     } catch (e) {
       console.warn('WebGPU init failed, falling back to WebGL2', e);
+      boot('webgpu: failed, using webgl2');
     }
   }
   const m = await import('./webgl2');
-  return m.createWebGL2Device(canvas, opts, preprocess);
+  return m.createWebGL2Device(canvas, opts, { preprocess, boot, abandoned: () => false });
 }
