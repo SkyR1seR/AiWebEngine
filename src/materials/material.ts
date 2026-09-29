@@ -49,6 +49,7 @@ let matId = 0;
  */
 export class Material {
   readonly id = matId++;
+  name = '';
   type: Lighting;
   shader: ShaderRef;
   defines: Defines;
