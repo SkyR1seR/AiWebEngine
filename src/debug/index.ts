@@ -116,7 +116,7 @@ export class DebugDraw implements System {
 /** FPS / draw calls / resolution overlay (top-left). Returns the element. */
 export function statsOverlay(game: Game) {
   const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;left:calc(env(safe-area-inset-left) + 4px);top:calc(env(safe-area-inset-top) + 4px);z-index:99;font:11px/1.35 monospace;color:#fff;background:rgba(0,0,0,.55);padding:4px 6px;border-radius:4px;pointer-events:none;white-space:pre';
+  el.style.cssText = 'position:fixed;right:calc(env(safe-area-inset-right) + 4px);top:calc(env(safe-area-inset-top) + 4px);z-index:99;font:11px/1.35 monospace;color:#fff;background:rgba(0,0,0,.55);padding:4px 6px;border-radius:4px;pointer-events:none;white-space:pre';
   document.body.appendChild(el);
   let t = 0;
   game.onRender((dt) => {
