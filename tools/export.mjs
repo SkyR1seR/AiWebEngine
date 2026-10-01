@@ -28,10 +28,12 @@ const htmlPath = join(out, 'index.html');
 if (!existsSync(htmlPath)) throw new Error('build produced no index.html');
 // Error overlay: shows uncaught errors / failed script loads on screen, and after 12 s reports the boot stage
 // if the game never became ready (engine marks stages via <html data-boot>). Invisible when all is well.
+// console.error is mirrored only until the game is ready: portal SDKs log harmless errors of their own later
+// (e.g. Yandex "The data does not differ from the previous ones") that players must not see.
 const OVERLAY = `<script>(function(){var b,d=document.documentElement;function s(m){try{if(!b){b=document.createElement('pre');b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:2147483647;margin:0;padding:8px;max-height:45%;overflow:auto;background:rgba(150,0,0,.92);color:#fff;font:12px/1.4 monospace;white-space:pre-wrap;pointer-events:auto';(document.body||d).appendChild(b)}b.textContent+=m+'\\n'}catch(e){}}
 addEventListener('error',function(e){var t=e.target;s(t&&t!==window&&(t.src||t.href)?'Failed to load: '+(t.src||t.href):'Error: '+e.message+(e.filename?' @ '+e.filename+':'+e.lineno:''))},true);
 addEventListener('unhandledrejection',function(e){var r=e.reason;s('Unhandled: '+(r&&(r.stack||r.message)||r))});
-var ce=console.error;console.error=function(){s([].map.call(arguments,String).join(' '));return ce.apply(console,arguments)};
+var ce=console.error;console.error=function(){if((d.dataset.boot||'').indexOf('ready')!==0)s([].map.call(arguments,String).join(' '));return ce.apply(console,arguments)};
 setTimeout(function(){var st=d.dataset.boot||'';if(st.indexOf('ready')!==0)s('Not ready after 12 s. Last boot stage: '+(st||'game script did not start'))},12000)})();</script>`;
 
 let html = readFileSync(htmlPath, 'utf8');

@@ -178,6 +178,19 @@ fn finalize(c: vec4f, wp: vec3f) -> vec4f {
   return vec4f(rgb, c.a);
 }
 
+#if DEPTH_ONLY
+#if ALPHA_TEST
+// shadow pass of cut-out materials (leaves, sprites): holes cast no shadow
+@fragment fn fs_depth(i: VOut) {
+  var a = M.color.a * O.tint.a * i.color.a;
+#if HAS_MAP
+  a *= textureSample(map, mapSampler, i.uv).a;
+#endif
+  if (a < M.extra.x) { discard; }
+}
+#endif
+#endif
+
 @fragment fn fs_main(i: VOut, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   var base = M.color * O.tint * i.color;
 #if HAS_MAP

@@ -213,7 +213,8 @@ export async function createWebGPUDevice(canvas: HTMLCanvasElement, opts: Create
             attributes: b.attrs.map((a) => ({ shaderLocation: a.loc, format: a.format, offset: a.offset })),
           })),
         },
-        fragment: color === null ? undefined : {
+        // depth only (shadows): no fragment stage, except alpha-tested materials that cut their holes out
+        fragment: color === null ? (d.defines?.ALPHA_TEST ? { module: m, entryPoint: 'fs_depth', targets: [] } : undefined) : {
           module: m,
           entryPoint: 'fs_main',
           targets: [{ format: color === 'screen' ? screenFormat : FORMATS[color], blend: d.blend && d.blend !== 'opaque' ? BLENDS[d.blend] : undefined }],

@@ -78,7 +78,18 @@ void main() {
 
 #if FRAGMENT
 #if DEPTH_ONLY
-void main() {}
+// shadow pass; cut-out materials (leaves, sprites) discard their holes
+in vec2 vUv;
+in vec4 vColor;
+void main() {
+#if ALPHA_TEST
+  float a = M.color.a * O.tint.a * vColor.a;
+#if HAS_MAP
+  a *= texture(map, vUv).a;
+#endif
+  if (a < M.extra.x) discard;
+#endif
+}
 #else
 in vec3 vWorld;
 in vec3 vNormal;

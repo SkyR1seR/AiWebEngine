@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /** Minify shader source: strip comments/whitespace, keep preprocessor lines intact. */
@@ -53,6 +53,40 @@ function noDynamicToEntryImports(): Plugin {
   };
 }
 
+/**
+ * Dev-only endpoint for in-browser editors: POST /__aiwe/save?file=games/<name>/<file>.json with the JSON body
+ * writes that file (only .json files inside games/).
+ */
+function devSave(): Plugin {
+  return {
+    name: 'dev-save-json',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__aiwe/save', (req, res) => {
+        const file = new URL(req.url ?? '', 'http://x').searchParams.get('file') ?? '';
+        const abs = resolve(file);
+        if (req.method !== 'POST' || file.includes('..') || !/^games\/[\w-]+\/[\w/-]+\.json$/.test(file) || !abs.startsWith(resolve('games'))) {
+          res.statusCode = 400;
+          res.end('bad request');
+          return;
+        }
+        let body = '';
+        req.on('data', (c) => (body += c));
+        req.on('end', () => {
+          try {
+            JSON.parse(body);
+            writeFileSync(abs, body);
+            res.end('ok');
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(String(e));
+          }
+        });
+      });
+    },
+  };
+}
+
 function htmlInputs() {
   const inputs: Record<string, string> = {};
   // EXAMPLE=runner vite build -> build a single example/game (for accurate size measurements)
@@ -73,7 +107,7 @@ function htmlInputs() {
 }
 
 export default defineConfig({
-  plugins: [shaderPlugin(), noDynamicToEntryImports()],
+  plugins: [shaderPlugin(), noDynamicToEntryImports(), devSave()],
   resolve: {
     alias: [
       { find: /^aiwebengine$/, replacement: resolve('src/index.ts') },

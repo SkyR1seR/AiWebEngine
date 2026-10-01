@@ -54,6 +54,13 @@ export class Screen {
     s.display = 'block';
     s.touchAction = 'none';
     s.userSelect = 'none';
+    // a held finger must not select text or open the long-press menu anywhere on the page (text fields still work)
+    const ds = document.documentElement.style as CSSStyleDeclaration & Record<string, string>;
+    ds.userSelect = ds.webkitUserSelect = 'none';
+    ds.webkitTouchCallout = 'none';
+    const editable = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable);
+    document.addEventListener('selectstart', (e) => { if (!editable(e.target)) e.preventDefault(); });
+    document.addEventListener('contextmenu', (e) => { if (!editable(e.target)) e.preventDefault(); });
     new ResizeObserver(() => (this._dirty = true)).observe(canvas);
     addEventListener('resize', () => (this._dirty = true));
     // safe-area probe

@@ -28,20 +28,82 @@ export class Sound {
   private _noiseBuf: AudioBuffer | null = null;
   private _vol = { master: 1, sfx: 1, music: 0.6 };
   muted = false;
+  private _listening = false;
+  /**
+   * The context can't be trusted any more: a resume() from a gesture failed, or (phones) the page was hidden - iOS
+   * keeps a context "running" but silent after the screen was locked. The next user gesture replaces it.
+   */
+  private _broken = false;
+  private _musicArgs: [string, number] | null = null;
 
   /** AudioContext (created lazily; resumes on first user gesture). */
-  get ctx() {
+  get ctx() { return this._open(); }
+  /**
+   * The context, created if needed. A method, not the getter: the build compresses with pure_getters, so a getter
+   * read only for its side effect (`void this.ctx`) would be dropped.
+   */
+  private _open(): AudioContext {
     if (!this._ctx) {
       const c = (this._ctx = new AudioContext());
       this.master = c.createGain();
       this.master.connect(c.destination);
       for (const b of ['sfx', 'music'] as const) { const g = c.createGain(); g.gain.value = this._vol[b]; g.connect(this.master); this._buses[b] = g; }
-      const resume = () => { if (c.state !== 'running') c.resume(); };
-      for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, resume, { passive: true });
-      document.addEventListener('visibilitychange', () => (document.hidden ? c.suspend() : c.resume()));
       this._applyVolume();
+      this._listen();
+      // iOS: an interruption (call, Siri, locked screen) leaves the context unusable even after it's resumed
+      c.addEventListener('statechange', () => { if ((c.state as string) === 'interrupted' && c === this._ctx) this._broken = true; });
     }
     return this._ctx;
+  }
+
+  /**
+   * Keep the context running: resume on user gestures and when the page is shown again, suspend while hidden.
+   * Browsers (iOS Safari above all) reject resume() outside a gesture and after an interruption (locked phone, call,
+   * another app) - such rejections are expected and swallowed; the next tap retries, and a context that still can't
+   * start is replaced by a new one.
+   */
+  private _listen() {
+    if (this._listening) return;
+    this._listening = true;
+    const gesture = () => {
+      if (!this._ctx || document.hidden) return;
+      const fresh = this._broken;
+      if (fresh) this._recreate();
+      if (!fresh && this._ctx.state === 'running') return;
+      this._resume(true);
+      // a tiny silent sound inside the gesture: iOS starts the audio output only for sound started by the user
+      const c = this._ctx!, b = c.createBufferSource();
+      b.buffer = c.createBuffer(1, 1, c.sampleRate);
+      b.connect(c.destination);
+      b.start();
+    };
+    for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown', 'click']) addEventListener(ev, gesture, { passive: true, capture: true });
+    document.addEventListener('visibilitychange', () => {
+      const c = this._ctx;
+      if (!c) return;
+      if (document.hidden) {
+        if (c.state === 'running') c.suspend().catch(() => {});
+        // phones: start with a fresh context on the first tap after coming back
+        if (navigator.maxTouchPoints > 0) this._broken = true;
+      } else this._resume(false);
+    });
+  }
+  private _resume(fromGesture: boolean) {
+    const c = this._ctx;
+    if (!c || c.state === 'running' || c.state === 'closed') return;
+    // (a successful resume doesn't clear _broken: on iOS it succeeds and stays silent)
+    // iOS only accepts some events of a tap (touchend/click, not pointerdown): a rejection counts only if nothing started it
+    c.resume().catch(() => { if (fromGesture && c === this._ctx && c.state !== 'running') this._broken = true; });
+  }
+  /** replace a broken context: same volumes, music restarted (decoded buffers work in any context) */
+  private _recreate() {
+    const old = this._ctx;
+    this._broken = false;
+    this._ctx = null;
+    this._music = null;
+    old?.close().catch(() => {});
+    this._open();
+    if (this._musicArgs) this.playMusic(this._musicArgs[0], this._musicArgs[1], 0.3).catch(() => {});
   }
 
   setVolume(bus: 'master' | 'sfx' | 'music', v: number) { this._vol[bus] = v; if (this._ctx) this._applyVolume(); }
@@ -93,13 +155,14 @@ export class Sound {
 
   /** Play looping music, crossfading from the current track. */
   async playMusic(url: string, volume = 1, fade = 1) {
+    this._musicArgs = [url, volume];
     const buf = await this.load(url);
     this._music?.stop(fade);
     const v = this.play(buf, { loop: true, bus: 'music', volume: 0 })!;
     v.gain.gain.setTargetAtTime(volume, this.ctx.currentTime, fade / 3);
     this._music = v;
   }
-  stopMusic(fade = 1) { this._music?.stop(fade); this._music = null; }
+  stopMusic(fade = 1) { this._music?.stop(fade); this._music = null; this._musicArgs = null; }
 
   /** Simple synth tone. */
   tone(o: { freq?: number; to?: number; type?: OscillatorType; duration?: number; volume?: number; attack?: number; delay?: number } = {}) {

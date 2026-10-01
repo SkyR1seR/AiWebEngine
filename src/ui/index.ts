@@ -64,7 +64,7 @@ box-shadow:0 calc(var(--u)*5px) 0 #1b5fb8,0 calc(var(--u)*8px) calc(var(--u)*14p
 .ui-panel{pointer-events:auto;background:rgba(18,22,40,.85);border-radius:calc(var(--u)*22px);padding:calc(var(--u)*28px) calc(var(--u)*36px);
 display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*18px);box-shadow:0 calc(var(--u)*12px) calc(var(--u)*40px) rgba(0,0,0,.5);backdrop-filter:blur(6px)}
 .ui-screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;transition:opacity .25s}
-.ui-screen.hidden{opacity:0;pointer-events:none}
+.ui-screen.hidden{opacity:0}.ui-screen.hidden,.ui-screen.hidden *{pointer-events:none}
 .ui-title{font-size:calc(var(--u)*56px);font-weight:900;letter-spacing:.02em}
 .ui-big{font-size:calc(var(--u)*36px);font-weight:800}
 .ui-wl{position:absolute;left:0;top:0;transform:translate(-50%,-100%);pointer-events:none;white-space:nowrap;will-change:transform}
