@@ -2,3 +2,4 @@ node_modules
 dist
 *.log
 export
+games/*/dev/shots
