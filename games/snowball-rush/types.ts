@@ -1,21 +1,24 @@
 // Shared contracts of Snowball Rush. See DESIGN.md. Owners may ADD optional fields to their sections (small Edits only).
 import type { Game } from 'aiwebengine';
 import type { UI } from 'aiwebengine/ui';
-import type { Yandex } from 'aiwebengine/yandex';
+import type { Playgama } from 'aiwebengine/playgama';
 import type { Payments } from './payments';
 
 // ---------------------------------------------------------------- common (lead)
-export type Lang = 'ru' | 'en';
+/** ISO 639-1 code of a supported language (see i18n.LANGS) */
+export type Lang = string;
 export interface Loc { ru: string; en: string }
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type Currency = 'coins' | 'gems';
 export type UpgradeId = 'speed' | 'grip' | 'armor' | 'start' | 'magnet';
 export type CaseId = 'snow' | 'ice' | 'santa';
 export type PowerUp = 'shield' | 'boost' | 'grow';
+/** menu features that unlock gradually (see unlocks.ts) */
+export type Feature = 'upgrades' | 'wardrobe' | 'daily' | 'cases' | 'shop';
 
-/** character skin ids (art draws them, catalog prices them) */
+/** character skin ids (art draws them, catalog prices them). 'noob' = the hero Нубик (images/noob.png), the default */
 export const SKIN_IDS = [
-  'rookie', 'skier', 'hockey', 'penguin', 'elf', 'gingerbread', 'snowman', 'reindeer', 'snowmaiden', 'iceknight', 'santa', 'yeti', 'nutcracker',
+  'noob', 'winter', 'skier', 'hockey', 'penguin', 'elf', 'gingerbread', 'snowman', 'reindeer', 'snowmaiden', 'iceknight', 'santa', 'yeti', 'nutcracker',
 ] as const;
 export type SkinId = typeof SKIN_IDS[number];
 /** ball skin ids */
@@ -210,6 +213,16 @@ export interface Save {
   pity: number;
   /** skin/ball tried for the next race via ad */
   trial: { skin?: string; ball?: string } | null;
+  /** failed attempts on the current level (each one makes the level a bit easier; reset when passed) */
+  tries: number;
+  /** obstacle kinds already introduced to the player (intro card shown) */
+  seen: ObstacleKind[];
+  /** features whose unlock was announced */
+  announced: Feature[];
+  /** feature → timestamp when it unlocked (starter offer timer starts at the shop unlock) */
+  unlockedAt: Partial<Record<Feature, number>>;
+  /** one-time tutorial freebies used: 'upgrade' (first upgrade free), 'case' (first snow case free), 'skin' (winter skin gift) */
+  freebies: string[];
 }
 
 // ---------------------------------------------------------------- economy results (meta)
@@ -243,7 +256,8 @@ export interface Nav {
 export interface Ctx {
   game: Game;
   ui: UI;
-  ya: Yandex;
+  /** platform SDK (Playgama Bridge): ads, saves, payments, lifecycle messages */
+  sdk: Playgama;
   pay: Payments;
   save: Save;
   persist(): void;

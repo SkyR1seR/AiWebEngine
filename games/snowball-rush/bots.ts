@@ -15,8 +15,8 @@ export class BotBrain {
   update(sim: RaceSim, dt: number): void { throw new Error('TODO' + sim + dt); }
 }
 
-/** rubber band: set racer.rubber of bots each step from their distance to the player (0.9..1.1) */
-export function applyRubberBand(sim: RaceSim, player: Racer): void { throw new Error('TODO' + sim + player); }
+/** rubber band: set racer.rubber of bots each step from their distance to the player (0.9..1.1); ease (retries) favors the player */
+export function applyRubberBand(sim: RaceSim, player: Racer, ease = 0): void { throw new Error('TODO' + sim + player + ease); }
 
 /** maybe an emote/chat text for a bot event (null = stay silent) */
 export function emoteFor(ev: BotEvent, rnd: () => number): string | null {

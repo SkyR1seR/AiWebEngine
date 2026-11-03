@@ -14,6 +14,7 @@ import { ... } from 'aiwebengine/assets';   // loadGLTF, Model
 import { ... } from 'aiwebengine/extras';   // createMannequin, OrbitControls, FollowCamera
 import { ... } from 'aiwebengine/debug';    // DebugDraw, statsOverlay
 import { yandex } from 'aiwebengine/yandex'; // Yandex Games SDK wrapper (no-op outside the portal)
+import { playgama } from 'aiwebengine/playgama'; // Playgama Bridge wrapper (Yandex, CrazyGames, Poki, VK, ... one SDK)
 ```
 
 ## Game & loop
@@ -144,6 +145,13 @@ await ya.showAd();                       // interstitial between rounds; game pa
 if (await ya.showRewarded()) bonus();
 await ya.save({ best }); const d = await ya.load();   // cloud save (localStorage fallback)
 ```
+Playgama Bridge (many portals with one build): `npm run export <name> -- --playgama` copies `playgama-bridge.js`
+(from the `@playgama/bridge` devDependency — portals forbid external scripts) and `games/<name>/playgama-bridge-config.json`
+(products, ad delays) next to index.html; verify with `npm run smoke <name> -- --playgama` (the SDK runs on its mock platform).
+`aiwebengine/playgama` mirrors the Yandex wrapper: `const pg = await playgama(); pg.game = game; pg.lang; pg.ready()`
+(sends "game_ready"), `gameplayStart/Stop`, `levelStarted/Completed/Failed(n)`, `showAd()`, `showRewarded()`, `save/load`,
+`pg.mute(userSetting)` (combined with ad/platform muting; pause/audio events handled), payments: `paymentsSupported`,
+`catalog()`, `purchase(id)`, `consume(id)` (by product id, after granting), `purchases()` (check on every launch).
 Moderation basics: localize UI for ru/en via `ya.lang`, no external network requests, sound off when the tab is hidden (built in), pause on portal pause events (built in).
 `game.pause()` / `game.resume()` freeze the loop manually. WebGPU init that hangs >4 s falls back to WebGL2 (`webgpuTimeout` option).
 

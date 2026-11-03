@@ -1,6 +1,9 @@
 // Procedural skins (owner: art): 64x64 character skins, UI portraits/figures, voxel ball looks and icons.
 import type { Geometry, Material, Texture } from 'aiwebengine';
 
+/** load image-based skins (the hero 'noob' from images/noob.png, 64x32 → converted to 64x64); await once at startup */
+export async function loadSkinAssets(): Promise<void> { throw new Error('TODO'); }
+
 /** 64x64 skin canvas (cached; do not modify) */
 export function skinCanvas(id: string): HTMLCanvasElement { throw new Error('TODO ' + id); }
 export function skinTexture(id: string): Texture { throw new Error('TODO ' + id); }

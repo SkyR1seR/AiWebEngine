@@ -1,6 +1,8 @@
 // Smoke test of an exported game the way a portal runs it: cross-origin iframe + fake Yandex SDK + headless Chrome.
 // Passes when the game reaches `ya.ready()` (engine logs "[aiwe] ready...") on both WebGPU and WebGL2.
-// Usage: npm run smoke <name>      (run `npm run export <name> -- --yandex` first, or pass --export)
+// Usage: npm run smoke <name> [-- --playgama] [-- --export]
+//   (run `npm run export <name> -- --yandex` (or `-- --playgama`) first, or pass --export)
+//   --playgama: the export ships Playgama Bridge; it runs on its mock platform here (no fake SDK needed)
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
@@ -22,14 +24,15 @@ function run(cmd, argv, timeout) {
 const args = process.argv.slice(2);
 const name = args.find((a) => !a.startsWith('--'));
 if (!name) { console.error('usage: npm run smoke <name> [-- --export]'); process.exit(1); }
-if (args.includes('--export') || !existsSync(`export/${name}/index.html`)) execFileSync('node', ['tools/export.mjs', name, '--yandex', '--no-zip'], { stdio: 'inherit' });
+const pg = args.includes('--playgama');
+if (args.includes('--export') || !existsSync(`export/${name}/index.html`)) execFileSync('node', ['tools/export.mjs', name, pg ? '--playgama' : '--yandex', '--no-zip'], { stdio: 'inherit' });
 const root = resolve('export', name);
 
 const FAKE_SDK = `window.YaGames={init:function(){return new Promise(function(r){setTimeout(function(){r({environment:{i18n:{lang:'ru'}},on:function(){},
 features:{LoadingAPI:{ready:function(){console.log('FAKE-SDK LoadingAPI.ready')}},GameplayAPI:{start:function(){},stop:function(){}}},
 adv:{showFullscreenAdv:function(o){o.callbacks.onClose(false)},showRewardedVideo:function(o){o.callbacks.onClose()}},
 getPlayer:function(){return Promise.resolve({getData:function(){return Promise.resolve({})},setData:function(){return Promise.resolve()}})}})},500)})}};`;
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.glb': 'model/gltf-binary' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.glb': 'model/gltf-binary', '.woff2': 'font/woff2' };
 
 const servers = [];
 const serve = (port, handler) => new Promise((ok) => { const s = createServer(handler).listen(port, ok); servers.push(s); });

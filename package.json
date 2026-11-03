@@ -14,7 +14,8 @@
     "./debug": "./src/debug/index.ts",
     "./extras": "./src/extras/index.ts",
     "./assets": "./src/assets/index.ts",
-    "./yandex": "./src/yandex/index.ts"
+    "./yandex": "./src/yandex/index.ts",
+    "./playgama": "./src/playgama/index.ts"
   },
   "scripts": {
     "dev": "vite",
@@ -29,6 +30,7 @@
     "smoke": "node tools/smoke.mjs"
   },
   "devDependencies": {
+    "@playgama/bridge": "^2.4.0",
     "@types/node": "^22.20.4",
     "@webgpu/types": "^0.1.60",
     "terser": "^5.36.0",

@@ -1,0 +1,22 @@
+{
+  "advertisement": {
+    "minimumDelayBetweenInterstitial": 60,
+    "interstitial": { "placements": [{ "id": "race_end" }] },
+    "rewarded": {
+      "placements": [
+        { "id": "double_reward" }, { "id": "free_case" }, { "id": "free_coins" }, { "id": "free_upgrade" },
+        { "id": "try_skin" }, { "id": "daily_double" }
+      ]
+    }
+  },
+  "payments": [
+    { "id": "gems_60" },
+    { "id": "gems_330" },
+    { "id": "gems_700" },
+    { "id": "gems_1500" },
+    { "id": "gems_4000" },
+    { "id": "starter_pack" },
+    { "id": "newyear_pack" },
+    { "id": "no_ads" }
+  ]
+}

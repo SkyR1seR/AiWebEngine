@@ -1,8 +1,10 @@
 // Export one game as a self-contained folder + zip with index.html at the root (for game portals).
-// Usage: npm run export <name> [-- --yandex] [-- --no-zip]
+// Usage: npm run export <name> [-- --yandex | --playgama] [-- --no-zip]
 //   --yandex      inject <script src="/sdk.js"> (Yandex Games SDK) into index.html
+//   --playgama    ship Playgama Bridge: copy playgama-bridge.js (from @playgama/bridge) and the game's
+//                 playgama-bridge-config.json next to index.html and load the SDK before the game
 //   --no-overlay  don't inject the on-screen error/boot diagnostics
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync, copyFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { gzipSync, deflateRawSync, crc32 } from 'node:zlib';
 import { build } from 'vite';
@@ -40,6 +42,16 @@ let html = readFileSync(htmlPath, 'utf8');
 const head = [];
 if (!args.includes('--no-overlay')) head.push(OVERLAY);
 if (args.includes('--yandex') && !html.includes('/sdk.js')) head.push('<script src="/sdk.js"></script>');
+if (args.includes('--playgama')) {
+  // platforms forbid external resources: the SDK runtime ships inside the archive
+  const runtime = resolve('node_modules/@playgama/bridge/dist/playgama-bridge.js');
+  if (!existsSync(runtime)) throw new Error('@playgama/bridge is not installed (npm i)');
+  copyFileSync(runtime, join(out, 'playgama-bridge.js'));
+  const cfg = join(dir, 'playgama-bridge-config.json');
+  if (existsSync(cfg)) copyFileSync(cfg, join(out, 'playgama-bridge-config.json'));
+  else console.warn(`warning: ${cfg} not found (Playgama Bridge runs with defaults)`);
+  if (!html.includes('playgama-bridge.js')) head.push('<script src="./playgama-bridge.js"></script>');
+}
 if (head.length) html = html.replace('<head>', '<head>\n  ' + head.join('\n  '));
 writeFileSync(htmlPath, html);
 
