@@ -80,6 +80,8 @@ export interface LevelData {
   theme: number;
   /** base bot skill for this level 0..1 */
   botSkill: number;
+  /** retry easing the level was built with (0..0.5, see level.easeFor) */
+  ease?: number;
 }
 
 // ---------------------------------------------------------------- racers (core)
