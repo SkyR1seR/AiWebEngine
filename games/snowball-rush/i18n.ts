@@ -30,7 +30,7 @@ export function setLang(code: string | undefined) {
   if (typeof document !== 'undefined') document.documentElement.lang = lang;
 }
 
-const loaders = import.meta.glob<{ default: Record<string, string> }>('./lang/*.json');
+const loaders = import.meta.glob<{ default: Record<string, string> }>('./lang/[a-z][a-z].json');
 
 /** load the dictionary of the current language (no-op for ru/en); call once after setLang, before building UI */
 export async function loadLang(): Promise<void> {
